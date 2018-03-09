@@ -6,9 +6,12 @@ import math
 import unicodedata
 import itertools
 from utils import grouper
+
+
 def strip_accents(s):
-   return ''.join(c for c in unicodedata.normalize('NFD', unicode(s,'utf-8'))
-                  if unicodedata.category(c) != 'Mn')
+    return ''.join(c for c in unicodedata.normalize('NFD', unicode(s, 'utf-8'))
+                   if unicodedata.category(c) != 'Mn')
+
 
 class RawData:
     def __init__(self):
@@ -18,6 +21,7 @@ class RawData:
         self.goldRating = -1
         self.predictedRating = -1
         self.userStr = ''
+        self.id = -1
 
 
 class DataSet:
@@ -33,12 +37,12 @@ class DataSet:
     def get_by_idxs(self, idxs):
         return [self.data[idx] for idx in idxs]
 
-    def get_batches(self, batch_size, num_epochs=None, rand = True):
+    def get_batches(self, batch_size, num_epochs=None, rand=True):
         num_batches_per_epoch = int(math.ceil(self.num_examples / batch_size))
         idxs = list(range(self.num_examples))
         _grouped = lambda: list(grouper(idxs, batch_size))
 
-        if(rand):
+        if rand:
             grouped = lambda: random.sample(_grouped(), num_batches_per_epoch)
         else:
             grouped = _grouped
@@ -47,7 +51,7 @@ class DataSet:
         for i in range(num_steps):
             batch_idxs = tuple(i for i in next(batch_idx_tuples) if i is not None)
             batch_data = self.get_by_idxs(batch_idxs)
-            yield i,batch_data
+            yield i, batch_data
 
 
 class Instance:
@@ -55,6 +59,7 @@ class Instance:
         self.token_idxs = None
         self.goldLabel = -1
         self.idx = -1
+        self.id = -1
 
     def _doc_len(self, idx):
         k = len(self.token_idxs)
@@ -63,6 +68,7 @@ class Instance:
     def _max_sent_len(self, idxs):
         k = max([len(sent) for sent in self.token_idxs])
         return k
+
 
 class Corpus:
     def __init__(self):
@@ -75,7 +81,9 @@ class Corpus:
             doc = RawData()
             doc.goldRating = int(items[0])
             doc.reviewText = items[1]
+            doc.id = int(items[2])
             self.doclst[name].append(doc)
+
     def preprocess(self):
         random.shuffle(self.doclst['train'])
         for dataset in self.doclst:
@@ -95,6 +103,7 @@ class Corpus:
                         self.vocab[token] = {'idx':len(self.vocab), 'count':1}
                     else:
                         self.vocab[token]['count'] += 1
+
     def w2v(self, options):
         sentences = []
         for doc in self.doclst['train']:
@@ -136,7 +145,6 @@ class Corpus:
 
         return instances, instances_dev, instances_test, embeddings, vocab
 
-
     def prepare_for_training(self, options):
         instancelst = []
         embeddings = np.zeros([len(self.vocab)+1,options['emb_size']])
@@ -149,10 +157,10 @@ class Corpus:
             instance.idx = i_doc
             n_sents = len(doc.sent_token_lst)
             max_n_tokens = max([len(sent) for sent in doc.sent_token_lst])
-            if(n_sents>options['max_sents']):
+            if n_sents > options['max_sents']:
                 n_filtered += 1
                 continue
-            if(max_n_tokens>options['max_tokens']):
+            if max_n_tokens > options['max_tokens']:
                 n_filtered += 1
                 continue
             sent_token_idx = []
@@ -166,9 +174,11 @@ class Corpus:
                 sent_token_idx.append(token_idxs)
             instance.token_idxs = sent_token_idx
             instance.goldLabel = doc.goldRating
+            instance.id = doc.id
             instancelst.append(instance)
         print('n_filtered in train: {}'.format(n_filtered))
         return instancelst, embeddings, self.vocab
+
     def prepare_for_test(self, options, name):
         instancelst = []
         n_filtered = 0
@@ -177,23 +187,42 @@ class Corpus:
             instance.idx = i_doc
             n_sents = len(doc.sent_token_lst)
             max_n_tokens = max([len(sent) for sent in doc.sent_token_lst])
-            if(n_sents>options['max_sents']):
+            if n_sents > options['max_sents']:
                 n_filtered += 1
                 continue
-            if(max_n_tokens>options['max_tokens']):
+            if max_n_tokens > options['max_tokens']:
                 n_filtered += 1
                 continue
             sent_token_idx = []
             for i in range(len(doc.sent_token_lst)):
                 token_idxs = []
                 for token in doc.sent_token_lst[i]:
-                    if(token in self.vocab):
+                    if token in self.vocab:
                         token_idxs.append(self.vocab[token].index)
                     else:
                         token_idxs.append(self.vocab['UNK'].index)
                 sent_token_idx.append(token_idxs)
             instance.token_idxs = sent_token_idx
             instance.goldLabel = doc.goldRating
+            instance.id = doc.id
             instancelst.append(instance)
         print('n_filtered in {}: {}'.format(name, n_filtered))
         return instancelst
+
+
+class ProcessedDoc(object):
+    def __init__(self, doc_id, gold_label, predicted_label, str_scores, text):
+        self.doc_id = doc_id
+        self.gold_label = gold_label
+        self.predicted_label = predicted_label
+        self.str_scores = str_scores
+        self.text = text
+
+    def __repr__(self):
+        template = '\nDoc id: {0.doc_id} ' \
+                   '\nGold label: {0.gold_label}' \
+                   '\nPredicted label: {0.predicted_label}' \
+                   '\nText: {0.text}' \
+                   '\nStructure scores shape: {0.str_scores.shape}' \
+                   '\nStructure scores: {0.str_scores}'
+        return template.format(self)

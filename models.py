@@ -4,7 +4,6 @@ from neural import dynamicBiRNN, LReLu, MLP, get_structure
 import numpy as np
 
 
-
 class StructureModel():
     def __init__(self, config):
         self.config = config
@@ -17,12 +16,12 @@ class StructureModel():
         t_variables['max_sent_l'] = tf.placeholder(tf.int32)
         t_variables['max_doc_l'] = tf.placeholder(tf.int32)
         t_variables['gold_labels'] = tf.placeholder(tf.int32, [None])
+        t_variables['doc_ids'] = tf.placeholder(tf.int32, [None])
         t_variables['mask_tokens'] = tf.placeholder(tf.float32, [None, None, None])
         t_variables['mask_sents'] = tf.placeholder(tf.float32, [None, None])
         t_variables['mask_parser_1'] = tf.placeholder(tf.float32, [None, None, None])
         t_variables['mask_parser_2'] = tf.placeholder(tf.float32, [None, None, None])
         self.t_variables = t_variables
-
 
     def get_feed_dict(self, batch):
         batch_size = len(batch)
@@ -35,31 +34,35 @@ class StructureModel():
         token_idxs_matrix = np.zeros([batch_size, max_doc_l, max_sent_l], np.int32)
         sent_l_matrix = np.zeros([batch_size, max_doc_l], np.int32)
         gold_matrix = np.zeros([batch_size], np.int32)
+        id_matrix = np.zeros([batch_size], np.int32)
         mask_tokens_matrix = np.ones([batch_size, max_doc_l, max_sent_l], np.float32)
         mask_sents_matrix = np.ones([batch_size, max_doc_l], np.float32)
         for i, instance in enumerate(batch):
             n_sents = len(instance.token_idxs)
             gold_matrix[i] = instance.goldLabel
+            id_matrix[i] = instance.id
             for j, sent in enumerate(instance.token_idxs):
                 token_idxs_matrix[i, j, :len(sent)] = np.asarray(sent)
                 mask_tokens_matrix[i, j, len(sent):] = 0
                 sent_l_matrix[i, j] = len(sent)
             mask_sents_matrix[i, n_sents:] = 0
+        #print("Mask sents inside get feed method: ", mask_sents_matrix.shape, mask_sents_matrix)
         mask_parser_1 = np.ones([batch_size, max_doc_l, max_doc_l], np.float32)
         mask_parser_2 = np.ones([batch_size, max_doc_l, max_doc_l], np.float32)
         mask_parser_1[:, :, 0] = 0
         mask_parser_2[:, 0, :] = 0
-        if (self.config.large_data):
+        if self.config.large_data:
             if (batch_size * max_doc_l * max_sent_l * max_sent_l > 16 * 200000):
                 return [batch_size * max_doc_l * max_sent_l * max_sent_l / (16 * 200000) + 1]
 
         feed_dict = {self.t_variables['token_idxs']: token_idxs_matrix, self.t_variables['sent_l']: sent_l_matrix,
                      self.t_variables['mask_tokens']: mask_tokens_matrix, self.t_variables['mask_sents']: mask_sents_matrix,
                      self.t_variables['doc_l']: doc_l_matrix, self.t_variables['gold_labels']: gold_matrix,
+                     self.t_variables['doc_ids']: id_matrix,
                      self.t_variables['max_sent_l']: max_sent_l, self.t_variables['max_doc_l']: max_doc_l,
                      self.t_variables['mask_parser_1']: mask_parser_1, self.t_variables['mask_parser_2']: mask_parser_2,
                      self.t_variables['batch_l']: batch_size, self.t_variables['keep_prob']:self.config.keep_prob}
-        return  feed_dict
+        return feed_dict
 
     def build(self):
         with tf.variable_scope("Embeddings"):
@@ -161,12 +164,14 @@ class StructureModel():
             tokens_output = tf.reduce_max(tokens_output, 1)
 
         sents_input = tf.reshape(tokens_output, [batch_l, max_doc_l, 2*self.config.dim_sem])
+        self.sents_input = sents_input
         sents_output, _ = dynamicBiRNN(sents_input, doc_l, n_hidden=self.config.dim_hidden, cell_type=self.config.rnn_cell, cell_name='Model/doc')
 
         sents_sem = tf.concat([sents_output[0][:,:,:self.config.dim_sem], sents_output[1][:,:,:self.config.dim_sem]], 2)
         sents_str = tf.concat([sents_output[0][:,:,self.config.dim_sem:], sents_output[1][:,:,self.config.dim_sem:]], 2)
 
         str_scores_ = get_structure('doc', sents_str,max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'])  #batch_l,  sent_l+1, sent_l
+        self.str_scores = str_scores_
         str_scores = tf.matrix_transpose(str_scores_)  # soft parent
         sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)
         sents_output_ = tf.matmul(str_scores, sents_sem_root)
@@ -200,5 +205,4 @@ class StructureModel():
                 if ('bias' not in p.name):
                     self.loss += self.config.norm * tf.nn.l2_loss(p)
             self.opt = optimizer.minimize(self.loss)
-
 

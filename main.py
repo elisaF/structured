@@ -1,12 +1,15 @@
 from data_structure import DataSet
+from predictor import InMemoryClient
 import tensorflow as tf
 import numpy as np
 import cPickle
 import logging
 from models import  StructureModel
 import tqdm
+import utils
 
 def load_data(config):
+
     train, dev, test, embeddings, vocab = cPickle.load(open(config.data_file))
     trainset, devset, testset = DataSet(train), DataSet(dev), DataSet(test)
     vocab = dict([(v.index,k) for k,v in vocab.items()])
@@ -23,13 +26,12 @@ def evaluate(sess, model, test_batches):
     for ct, batch in test_batches:
         feed_dict = model.get_feed_dict(batch)
         feed_dict[model.t_variables['keep_prob']] = 1
-        predictions = sess.run(model.final_output, feed_dict=feed_dict)
-
+        predictions = sess.run([model.final_output], feed_dict=feed_dict)
         predictions = np.argmax(predictions, 1)
         corr_count += np.sum(predictions == feed_dict[model.t_variables['gold_labels']])
         all_count += len(batch)
     acc_test = 1.0 * corr_count / all_count
-    return  acc_test
+    return acc_test
 
 def run(config):
     import random
@@ -43,42 +45,105 @@ def run(config):
     ah.setFormatter(formatter)
     logger.addHandler(ah)
 
-    num_examples, train_batches, dev_batches, test_batches, embedding_matrix, vocab = load_data(config)
-    print(embedding_matrix.shape)
-    config.n_embed, config.d_embed = embedding_matrix.shape
+    if config.model_dir:
+        evaluate_pretrained_model(config, logger)
 
-    config.dim_hidden = config.dim_sem+config.dim_str
+    else:
+        logger.debug("Going to load data")
+        num_examples, train_batches, dev_batches, test_batches, embedding_matrix, vocab = load_data(config)
+        logger.debug("Finished loading data.")
+        # save vocab to file
+        utils.save_dict(vocab, str(hash)+'.dict')
+        print("Embedding matrix size: ", embedding_matrix.shape)
+        config.n_embed, config.d_embed = embedding_matrix.shape
 
-    print(config.__flags)
-    logger.critical(str(config.__flags))
+        config.dim_hidden = config.dim_sem + config.dim_str
 
-    model = StructureModel(config)
-    model.build()
-    model.get_loss()
-    # trainer = Trainer(config)
+        print(config.__flags)
+        logger.critical(str(config.__flags))
+        model = StructureModel(config)
+        model.build()
+        model.get_loss()
+        # trainer = Trainer(config)
 
-    num_batches_per_epoch = int(num_examples / config.batch_size)
-    num_steps = config.epochs * num_batches_per_epoch
+        num_batches_per_epoch = int(num_examples / config.batch_size)
+        num_steps = config.epochs * num_batches_per_epoch
+        best_acc_dev = 0.0
 
-    with tf.Session() as sess:
-        gvi = tf.global_variables_initializer()
-        sess.run(gvi)
-        sess.run(model.embeddings.assign(embedding_matrix.astype(np.float32)))
-        loss = 0
+        with tf.Session() as sess:
+            gvi = tf.global_variables_initializer()
+            sess.run(gvi)
+            sess.run(model.embeddings.assign(embedding_matrix.astype(np.float32)))
+            loss = 0
 
-        for ct, batch in tqdm.tqdm(train_batches, total=num_steps):
-            feed_dict = model.get_feed_dict(batch)
-            outputs,_,_loss = sess.run([model.final_output, model.opt, model.loss], feed_dict=feed_dict)
-            loss+=_loss
-            if(ct%config.log_period==0):
-                acc_test = evaluate(sess, model, test_batches)
-                acc_dev = evaluate(sess, model, dev_batches)
-                print('Step: {} Loss: {}\n'.format(ct, loss))
-                print('Test ACC: {}\n'.format(acc_test))
-                print('Dev  ACC: {}\n'.format(acc_dev))
-                logger.debug('Step: {} Loss: {}\n'.format(ct, loss))
-                logger.debug('Test ACC: {}\n'.format(acc_test))
-                logger.debug('Dev  ACC: {}\n'.format(acc_dev))
-                logger.handlers[0].flush()
-                loss = 0
+            for ct, batch in tqdm.tqdm(train_batches, total=num_steps):
+                feed_dict = model.get_feed_dict(batch)
+                outputs, _, _loss = sess.run([model.final_output, model.opt, model.loss], feed_dict=feed_dict)
+
+                loss+=_loss
+                if(ct%config.log_period==0):
+                    acc_test = evaluate(sess, model, test_batches)
+                    acc_dev = evaluate(sess, model, dev_batches)
+                    print('\nStep: {} Loss: {}'.format(ct, loss))
+                    print('Test ACC: {}'.format(acc_test))
+                    print('Dev  ACC: %s (%s)', acc_dev, best_acc_dev)
+                    logger.debug('\nStep: {} Loss: {}'.format(ct, loss))
+                    logger.debug('Test ACC: {}'.format(acc_test))
+                    logger.debug('Dev  ACC: %s (%s)', acc_dev, best_acc_dev)
+                    logger.handlers[0].flush()
+                    loss = 0
+                    if acc_dev > best_acc_dev:
+                        best_acc_dev = acc_dev
+                        save_model(sess, ct, model, logger)
+
+
+def save_model(sess, step, model, logger):
+    export_path = "./trained_model-" + str(step)
+    print('Exporting trained model to %s' % export_path)
+    logger.info('Exporting trained model to %s' % export_path)
+    builder = tf.saved_model.builder.SavedModelBuilder("./trained_model-" + str(step))
+    input_token_idxs = tf.saved_model.utils.build_tensor_info(model.t_variables['token_idxs'])
+    input_sent_l = tf.saved_model.utils.build_tensor_info(model.t_variables['sent_l'])
+    input_mask_tokens = tf.saved_model.utils.build_tensor_info(model.t_variables['mask_tokens'])
+    input_mask_sents = tf.saved_model.utils.build_tensor_info(model.t_variables['mask_sents'])
+    input_doc_l = tf.saved_model.utils.build_tensor_info(model.t_variables['doc_l'])
+    input_gold_labels = tf.saved_model.utils.build_tensor_info(model.t_variables['gold_labels'])
+    input_doc_ids = tf.saved_model.utils.build_tensor_info(model.t_variables['doc_ids'])
+    input_max_sent_l = tf.saved_model.utils.build_tensor_info(model.t_variables['max_sent_l'])
+    input_max_doc_l = tf.saved_model.utils.build_tensor_info(model.t_variables['max_doc_l'])
+    input_mask_parser_1 = tf.saved_model.utils.build_tensor_info(model.t_variables['mask_parser_1'])
+    input_mask_parser_2 = tf.saved_model.utils.build_tensor_info(model.t_variables['mask_parser_2'])
+    input_batch_l = tf.saved_model.utils.build_tensor_info(model.t_variables['batch_l'])
+    input_keep_prob = tf.saved_model.utils.build_tensor_info(model.t_variables['keep_prob'])
+
+    output = tf.saved_model.utils.build_tensor_info(model.final_output)
+    str_scores = tf.saved_model.utils.build_tensor_info(model.str_scores)
+    prediction_signature = (
+        tf.saved_model.signature_def_utils.build_signature_def(
+            inputs={'input_token_idxs': input_token_idxs, 'input_sent_l': input_sent_l,
+                    'input_mask_tokens': input_mask_tokens, 'input_mask_sents': input_mask_sents,
+                    'input_doc_l': input_doc_l, 'input_gold_labels': input_gold_labels,
+                    'input_doc_ids': input_doc_ids,
+                    'input_max_sent_l': input_max_sent_l, 'input_max_doc_l': input_max_doc_l,
+                    'input_mask_parser_1': input_mask_parser_1, 'input_mask_parser_2': input_mask_parser_2,
+                    'input_batch_l': input_batch_l, 'input_keep_prob': input_keep_prob},
+            outputs={'output': output, 'str_scores': str_scores},
+            method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+
+    builder.add_meta_graph_and_variables(
+        sess, [tf.saved_model.tag_constants.SERVING],
+        signature_def_map={
+            tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
+                prediction_signature
+        },
+    )
+    builder.save()
+    print('Done exporting!')
+    logger.info('Done exporting!')
+
+
+def evaluate_pretrained_model(config, logger):
+    client = InMemoryClient(config.model_dir, config.vocab_file, config.data_output_file, logger)
+    test_batches = client.load_data(config)
+    client.predict(test_batches)
 

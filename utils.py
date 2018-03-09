@@ -1,5 +1,6 @@
 import numpy as np
 from six.moves import zip_longest
+import pickle
 
 class Data:
     def __init__(self):
@@ -14,6 +15,7 @@ class Instance:
     def __init__(self):
         self.token_idxs = None
         self.goldLabel = -1
+        self.id = -1
 
 class Corpus:
     def __init__(self):
@@ -83,6 +85,7 @@ class Corpus:
             #     token_matrix[i,:len(token_idxs)] = np.asarray(token_idxs)
             instance.token_idxs = sent_token_idx
             instance.goldLabel = doc.goldRating
+            instance.id = doc.id
             self.instancelst.append(instance)
             self.instance_in_buckets[i_bucket].append(instance)
         print('n_filtered: {}'.format(n_filtered))
@@ -100,3 +103,11 @@ def grouper(iterable, n, fillvalue=None, shorten=False, num_groups=None):
         assert fillvalue is None
         out = (tuple(e for e in each if e is not None) for each in out)
     return out
+
+
+def load_dict(fname):
+    return pickle.load(open(fname, 'rb'))
+
+
+def save_dict(vocab, fname):
+    pickle.dump(vocab, open(fname, 'wb'))

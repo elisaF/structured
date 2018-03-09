@@ -13,7 +13,12 @@ def main(train_path, dev_path, test_path):
     corpus.w2v(options)
 
     instance, instance_dev, instance_test, embeddings, vocab = corpus.prepare(options)
-    cPickle.dump((instance, instance_dev, instance_test, embeddings, vocab),open('../data/yelp-2013-all.pkl','w'))
+    cPickle.dump(instance_dev, open('data/yelp-sentiment-dev.pkl', 'w'))
+    print('Dumped dev.')
+    cPickle.dump(instance_test, open('data/yelp-sentiment-test.pkl', 'w'))
+    print('Dumped test.')
+    cPickle.dump((instance, embeddings, vocab), open('data/yelp-sentiment-train.pkl', 'w'))
+    print('Dumped train.')
 
 
 parser = argparse.ArgumentParser(description='Process some integers.')

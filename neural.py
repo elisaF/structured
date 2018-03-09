@@ -28,8 +28,9 @@ def dynamicBiRNN(input, seqlen, n_hidden, cell_type, cell_name=''):
                                                                  sequence_length=seqlen)
     return outputs, output_states
 
+
 def MLP(input, vname, keep_prob):
-    dim_input  = input.shape[1]
+    dim_input = input.shape[1]
     with tf.variable_scope("Model"):
         w1 = tf.get_variable("w1_"+vname,[dim_input, dim_input],
                             dtype=tf.float32,
@@ -84,13 +85,13 @@ def get_structure(name, input, max_l, mask_parser_1, mask_parser_2):
         L = L - A
         LL = L[:, 1:, :]
         LL = tf.concat([tf.expand_dims(r, [1]), LL], 1)
-        LL_inv = tf.matrix_inverse(LL)  #batch_l, doc_l, doc_l
-        d0 = tf.multiply(r, LL_inv[:, :, 0])
+        LL_inv = tf.matrix_inverse(LL)  # batch_l, doc_l, doc_l
+        d0 = tf.multiply(r, LL_inv[:, :, 0])  # root
         LL_inv_diag = tf.expand_dims(tf.matrix_diag_part(LL_inv), 2)
         tmp1 = tf.matrix_transpose(tf.multiply(tf.matrix_transpose(A), LL_inv_diag))
         tmp2 = tf.multiply(A, tf.matrix_transpose(LL_inv))
         d = mask1 * tmp1 - mask2 * tmp2
-        d = tf.concat([tf.expand_dims(d0,[1]), d], 1)
+        d = tf.concat([tf.expand_dims(d0,[1]), d], 1)  # add column at beginning for root
         return d, LL
 
     str_scores = _getDep(input, mask_parser_1, mask_parser_2)

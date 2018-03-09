@@ -15,7 +15,7 @@ from main import run as m
 flags = tf.app.flags
 
 flags.DEFINE_string("rnn_cell", "lstm", "rnn_cell")
-flags.DEFINE_string("data_file", "../data/yelp-2013-fake.pkl", "data_file")
+flags.DEFINE_string("data_file", "/data/yelp-sentiment.pkl", "data_file")
 
 flags.DEFINE_integer("batch_size", 16, "batch_size")
 flags.DEFINE_integer("epochs", 30, "epochs")
@@ -32,7 +32,12 @@ flags.DEFINE_integer("gpu", -1, "gpu")
 flags.DEFINE_string("sent_attention", "max", "sent_attention")
 flags.DEFINE_string("doc_attention", "max", "doc_attention")
 flags.DEFINE_bool("large_data", False, "large_data")
+flags.DEFINE_bool("test", False, "test")
 flags.DEFINE_integer("log_period", 5000, "log_period")
+
+flags.DEFINE_string("model_dir", None, "directory to load model from")
+flags.DEFINE_string("vocab_file", None, "full path to vocabulary file")
+flags.DEFINE_string("data_output_file", "data/yelp-sentiment-output.pkl", "full path to output pickle file")
 
 
 def main(_):
