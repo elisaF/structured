@@ -26,7 +26,7 @@ def evaluate(sess, model, test_batches):
     for ct, batch in test_batches:
         feed_dict = model.get_feed_dict(batch)
         feed_dict[model.t_variables['keep_prob']] = 1
-        predictions = sess.run([model.final_output], feed_dict=feed_dict)
+        predictions = sess.run(model.final_output, feed_dict=feed_dict)
         predictions = np.argmax(predictions, 1)
         corr_count += np.sum(predictions == feed_dict[model.t_variables['gold_labels']])
         all_count += len(batch)

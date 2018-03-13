@@ -25,7 +25,7 @@ class RawData:
 
 
 class DataSet:
-    def __init__(self, data):
+    def  __init__(self, data):
         self.data = data
         self.num_examples = len(self.data)
 
