@@ -51,8 +51,8 @@ class InMemoryClient:
             corr_count += np.sum(predictions == feed_dict[self.t_variables['input_gold_labels']])
             all_count += len(batch)
             # save the scores
-            batch_processed_docs = self.process_batch(ct, feed_dict, str_scores_batched, predictions)
-            self.logger.info("Processed %s test doc in batch %s", len(batch_processed_docs), ct)
+            batch_processed_docs = self.process_batch(len(batch), feed_dict, str_scores_batched, predictions)
+            self.logger.info("Processed %s test docs in batch %s", len(batch_processed_docs), ct)
             processed_docs.extend(batch_processed_docs)
         acc_test = 1.0 * corr_count / all_count
         print('Test ACC: {}'.format(acc_test))
@@ -61,38 +61,39 @@ class InMemoryClient:
         self.logger.info("Finished processing all batches. Dumped to pickle file %s.", self.output_fname)
         return acc_test
 
-    def process_batch(self, batch_num, feed_dict, str_scores_batched, outputs):
+    def process_batch(self, batch_size, feed_dict, str_scores_batched, outputs):
         processed_docs = []
-        doc_id = feed_dict[self.t_variables['input_doc_ids']][batch_num]
-        gold_label = feed_dict[self.t_variables['input_gold_labels']][batch_num]
-        predicted_label = np.argmax(outputs[batch_num])
-        token_idxs = feed_dict[self.t_variables['input_token_idxs']][batch_num]
-        mask_tokens = feed_dict[self.t_variables['input_mask_tokens']][batch_num]  # doc_l x max_token_l
-        mask_sents = feed_dict[self.t_variables['input_mask_sents']][batch_num]
-        str_scores = str_scores_batched[batch_num]
-        text = []
+        for batch_num in range(batch_size):
+            doc_id = feed_dict[self.t_variables['input_doc_ids']][batch_num]
+            gold_label = feed_dict[self.t_variables['input_gold_labels']][batch_num]
+            predicted_label = np.argmax(outputs[batch_num])
+            token_idxs = feed_dict[self.t_variables['input_token_idxs']][batch_num]
+            mask_tokens = feed_dict[self.t_variables['input_mask_tokens']][batch_num]  # doc_l x max_token_l
+            mask_sents = feed_dict[self.t_variables['input_mask_sents']][batch_num]
+            str_scores = str_scores_batched[batch_num]
+            text = []
 
-        # unmask tokens
-        # apply sent mask to remove tokens from missing sents
-        mask_tokens = mask_sents[:, np.newaxis] * mask_tokens
+            # unmask tokens
+            # apply sent mask to remove tokens from missing sents
+            mask_tokens = mask_sents[:, np.newaxis] * mask_tokens
 
-        for sent_num in range(token_idxs.shape[0]):
-            unmasked_token_idxs = token_idxs[sent_num][mask_tokens[sent_num].astype(bool)]
-            if unmasked_token_idxs.size:
-                text.extend([self.vocab[token_idx] for token_idx in unmasked_token_idxs])
-                text.extend(["<split>"])
+            for sent_num in range(token_idxs.shape[0]):
+                unmasked_token_idxs = token_idxs[sent_num][mask_tokens[sent_num].astype(bool)]
+                if unmasked_token_idxs.size:
+                    text.extend([self.vocab[token_idx] for token_idx in unmasked_token_idxs])
+                    text.extend(["<split>"])
 
-        # unmask str scores
-        # prepend column for ROOT to make it square,
-        # and set to neg inf since no node can be the parent of ROOT
-        str_scores = np.insert(str_scores, 0, np.inf * -1, axis=1)
-        # insert 1 into mask for ROOT node
-        mask_sents = np.insert(mask_sents, 0, 1)
-        mask_sents_squared = (mask_sents * np.repeat(mask_sents[:, np.newaxis], mask_sents.shape, 1)).astype(bool)
-        num_sents = np.count_nonzero(mask_sents)
-        unmasked_str_scores = str_scores[mask_sents_squared].reshape((num_sents, num_sents))
+            # unmask str scores
+            # prepend column for ROOT to make it square,
+            # and set to neg inf since no node can be the parent of ROOT
+            str_scores = np.insert(str_scores, 0, np.inf * -1, axis=1)
+            # insert 1 into mask for ROOT node
+            mask_sents = np.insert(mask_sents, 0, 1)
+            mask_sents_squared = (mask_sents * np.repeat(mask_sents[:, np.newaxis], mask_sents.shape, 1)).astype(bool)
+            num_sents = np.count_nonzero(mask_sents)
+            unmasked_str_scores = str_scores[mask_sents_squared].reshape((num_sents, num_sents))
 
-        processed_docs.append(ProcessedDoc(doc_id, gold_label, predicted_label, unmasked_str_scores, text))
+            processed_docs.append(ProcessedDoc(doc_id, gold_label, predicted_label, unmasked_str_scores, text))
         return processed_docs
 
     def get_feed_dict(self, batch):
