@@ -1,6 +1,4 @@
 import tensorflow as tf
-import sys
-
 
 def LReLu(x, leak=0.01):
     f1 = 0.5 * (1 + leak)
@@ -87,13 +85,7 @@ def get_structure(name, input, max_l, mask_parser_1, mask_parser_2):
         L = L - A
         LL = L[:, 1:, :]
         LL = tf.concat([tf.expand_dims(r, [1]), LL], 1)
-        try:
-            LL_inv = tf.matrix_inverse(LL)  # batch_l, doc_l, doc_l
-        except:
-            e = sys.exc_info()[0]
-            print("Caught exception: ", e)
-            print("Matrix: ", LL.shape, LL)
-            raise
+        LL_inv = tf.matrix_inverse(LL)  # batch_l, doc_l, doc_l
         d0 = tf.multiply(r, LL_inv[:, :, 0])  # root
         LL_inv_diag = tf.expand_dims(tf.matrix_diag_part(LL_inv), 2)
         tmp1 = tf.matrix_transpose(tf.multiply(tf.matrix_transpose(A), LL_inv_diag))
