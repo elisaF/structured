@@ -90,8 +90,8 @@ class InMemoryClient:
             # insert 1 into mask for ROOT node
             mask_sents = np.insert(mask_sents, 0, 1)
             mask_sents_squared = (mask_sents * np.repeat(mask_sents[:, np.newaxis], mask_sents.shape, 1)).astype(bool)
-            num_sents = np.count_nonzero(mask_sents)
-            unmasked_str_scores = str_scores[mask_sents_squared].reshape((num_sents, num_sents))
+            num_sents_with_root = np.count_nonzero(mask_sents)
+            unmasked_str_scores = str_scores[mask_sents_squared].reshape((num_sents_with_root, num_sents_with_root))
 
             processed_docs.append(ProcessedDoc(doc_id, gold_label, predicted_label, unmasked_str_scores, text))
         return processed_docs
