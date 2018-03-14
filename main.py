@@ -33,6 +33,7 @@ def evaluate(sess, model, test_batches):
     acc_test = 1.0 * corr_count / all_count
     return acc_test
 
+
 def run(config):
     import random
 
@@ -101,7 +102,7 @@ def save_model(sess, step, model, logger):
     export_path = "./trained_model-" + str(step)
     print('Exporting trained model to %s' % export_path)
     logger.info('Exporting trained model to %s' % export_path)
-    builder = tf.saved_model.builder.SavedModelBuilder("./trained_model-" + str(step))
+    builder = tf.saved_model.builder.SavedModelBuilder(export_path)
     input_token_idxs = tf.saved_model.utils.build_tensor_info(model.t_variables['token_idxs'])
     input_sent_l = tf.saved_model.utils.build_tensor_info(model.t_variables['sent_l'])
     input_mask_tokens = tf.saved_model.utils.build_tensor_info(model.t_variables['mask_tokens'])

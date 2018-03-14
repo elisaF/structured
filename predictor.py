@@ -70,7 +70,7 @@ class InMemoryClient:
             token_idxs = feed_dict[self.t_variables['input_token_idxs']][batch_num]
             mask_tokens = feed_dict[self.t_variables['input_mask_tokens']][batch_num]  # doc_l x max_token_l
             mask_sents = feed_dict[self.t_variables['input_mask_sents']][batch_num]
-            str_scores = str_scores_batched[batch_num]
+            str_scores = str_scores_batched[batch_num]  # doc_l x doc_l+1
             text = []
 
             # unmask tokens
@@ -84,9 +84,9 @@ class InMemoryClient:
                     text.extend(["<split>"])
 
             # unmask str scores
-            # prepend column for ROOT to make it square,
+            # prepend row for ROOT to make it square,
             # and set to neg inf since no node can be the parent of ROOT
-            str_scores = np.insert(str_scores, 0, np.inf * -1, axis=1)
+            str_scores = np.insert(str_scores, 0, np.inf * -1, axis=0)
             # insert 1 into mask for ROOT node
             mask_sents = np.insert(mask_sents, 0, 1)
             mask_sents_squared = (mask_sents * np.repeat(mask_sents[:, np.newaxis], mask_sents.shape, 1)).astype(bool)
