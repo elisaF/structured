@@ -46,11 +46,10 @@ class StructureModel():
                 mask_tokens_matrix[i, j, len(sent):] = 0
                 sent_l_matrix[i, j] = len(sent)
             mask_sents_matrix[i, n_sents:] = 0
-        #print("Mask sents inside get feed method: ", mask_sents_matrix.shape, mask_sents_matrix)
         mask_parser_1 = np.ones([batch_size, max_doc_l, max_doc_l], np.float32)
         mask_parser_2 = np.ones([batch_size, max_doc_l, max_doc_l], np.float32)
-        mask_parser_1[:, :, 0] = 0
-        mask_parser_2[:, 0, :] = 0
+        mask_parser_1[:, :, 0] = 0  # zero out 1st column for each doc
+        mask_parser_2[:, 0, :] = 0  # zero out 1st row for each doc
         if self.config.large_data:
             if (batch_size * max_doc_l * max_sent_l * max_sent_l > 16 * 200000):
                 return [batch_size * max_doc_l * max_sent_l * max_sent_l / (16 * 200000) + 1]
@@ -170,7 +169,7 @@ class StructureModel():
         sents_sem = tf.concat([sents_output[0][:,:,:self.config.dim_sem], sents_output[1][:,:,:self.config.dim_sem]], 2)
         sents_str = tf.concat([sents_output[0][:,:,self.config.dim_sem:], sents_output[1][:,:,self.config.dim_sem:]], 2)
 
-        str_scores_ = get_structure('doc', sents_str,max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'])  #batch_l,  sent_l+1, sent_l
+        str_scores_ = get_structure('doc', sents_str, max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'])  #batch_l,  sent_l+1, sent_l
         str_scores = tf.matrix_transpose(str_scores_)  # soft parent
         self.str_scores = str_scores
         sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)
