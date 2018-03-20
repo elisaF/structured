@@ -22,19 +22,14 @@ class InMemoryClient:
         meta_graph_def = tf.saved_model.loader.load(self.sess, [tf.saved_model.tag_constants.SERVING], self.model_path)
         signature_def = tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
         meta_graph_def_sig = signature_def_utils.get_signature_def_by_key(meta_graph_def, signature_def)
-        #print("Signature def: ", meta_graph_def_sig)
-        #print("Inputs: ", meta_graph_def_sig.inputs, type(meta_graph_def_sig.inputs))
 
         input_tensor_keys = [k for k in meta_graph_def_sig.inputs]
         input_tensor_names = [meta_graph_def_sig.inputs[k].name for k in input_tensor_keys]
 
-        #print("Input keys: ", input_tensor_keys)
-        #print("Input names: ", input_tensor_names)
         self.t_variables = {key: name for key, name in zip(input_tensor_keys, input_tensor_names)}
 
         self.final_output = meta_graph_def_sig.outputs['output'].name
         self.str_scores = meta_graph_def_sig.outputs['str_scores'].name
-        #print("Output name: ", self.final_output)
 
         self.vocab = utils.load_dict(vocab_fname)
 
@@ -46,12 +41,12 @@ class InMemoryClient:
         corr_count, all_count = 0, 0
         for ct, batch in test_batches:
             feed_dict = self.get_feed_dict(batch)
-            predictions, str_scores_batched = self.sess.run([self.final_output, self.str_scores], feed_dict=feed_dict)
-            predictions = np.argmax(predictions, 1)
+            outputs, str_scores_batched = self.sess.run([self.final_output, self.str_scores], feed_dict=feed_dict)
+            predictions = np.argmax(outputs, 1)
             corr_count += np.sum(predictions == feed_dict[self.t_variables['input_gold_labels']])
             all_count += len(batch)
             # save the scores
-            batch_processed_docs = self.process_batch(len(batch), feed_dict, str_scores_batched, predictions)
+            batch_processed_docs = self.process_batch(len(batch), feed_dict, str_scores_batched, outputs)
             self.logger.info("Processed %s test docs in batch %s", len(batch_processed_docs), ct)
             processed_docs.extend(batch_processed_docs)
         acc_test = 1.0 * corr_count / all_count
@@ -66,7 +61,7 @@ class InMemoryClient:
         for batch_num in range(batch_size):
             doc_id = feed_dict[self.t_variables['input_doc_ids']][batch_num]
             gold_label = feed_dict[self.t_variables['input_gold_labels']][batch_num]
-            predicted_label = np.argmax(outputs[batch_num], 1)
+            predicted_label = np.argmax(outputs[batch_num])
             token_idxs = feed_dict[self.t_variables['input_token_idxs']][batch_num]
             mask_tokens = feed_dict[self.t_variables['input_mask_tokens']][batch_num]  # doc_l x max_token_l
             mask_sents = feed_dict[self.t_variables['input_mask_sents']][batch_num]
