@@ -5,6 +5,7 @@ import random
 import math
 import unicodedata
 import itertools
+
 from utils import grouper
 
 
@@ -152,15 +153,18 @@ class Corpus:
             embeddings[self.vocab[word].index] = self.w2v_model[word]
         self.vocab['UNK'] = gensim.models.word2vec.Vocab(count=0, index=len(self.vocab))
         n_filtered = 0
+        ids_filtered = []
         for i_doc, doc in enumerate(self.doclst['train']):
             instance = Instance()
             instance.idx = i_doc
             n_sents = len(doc.sent_token_lst)
             max_n_tokens = max([len(sent) for sent in doc.sent_token_lst])
             if n_sents > options['max_sents']:
+                ids_filtered.append(doc.id)
                 n_filtered += 1
                 continue
             if max_n_tokens > options['max_tokens']:
+                ids_filtered.append(doc.id)
                 n_filtered += 1
                 continue
             sent_token_idx = []
@@ -177,10 +181,12 @@ class Corpus:
             instance.id = doc.id
             instancelst.append(instance)
         print('n_filtered in train: {}'.format(n_filtered))
+        print("Doc ids filtered: ", ids_filtered)
         return instancelst, embeddings, self.vocab
 
     def prepare_for_test(self, options, name):
         instancelst = []
+        ids_filtered = []
         n_filtered = 0
         for i_doc, doc in enumerate(self.doclst[name]):
             instance = Instance()
@@ -188,9 +194,11 @@ class Corpus:
             n_sents = len(doc.sent_token_lst)
             max_n_tokens = max([len(sent) for sent in doc.sent_token_lst])
             if n_sents > options['max_sents']:
+                ids_filtered.append(doc.id)
                 n_filtered += 1
                 continue
             if max_n_tokens > options['max_tokens']:
+                ids_filtered.append(doc.id)
                 n_filtered += 1
                 continue
             sent_token_idx = []
@@ -207,6 +215,7 @@ class Corpus:
             instance.id = doc.id
             instancelst.append(instance)
         print('n_filtered in {}: {}'.format(name, n_filtered))
+        print("Doc ids filtered: ", ids_filtered)
         return instancelst
 
 
@@ -217,12 +226,29 @@ class ProcessedDoc(object):
         self.predicted_label = predicted_label
         self.str_scores = str_scores
         self.text = text
+        self.tree = None
+        self.sentiments = []
+        self.sentiment_scores = []
 
     def __repr__(self):
+        text_repr = ' '.join(self.text).split("<split>")
+        self.texts = ""
+        for i, sent in enumerate(text_repr):
+            if sent:
+                self.texts += '[' + str(i) + "]" + sent + "\n"
+
         template = '\nDoc id: {0.doc_id} ' \
                    '\nGold label: {0.gold_label}' \
                    '\nPredicted label: {0.predicted_label}' \
-                   '\nText: {0.text}' \
+                   '\nText: {0.texts}' \
                    '\nStructure scores shape: {0.str_scores.shape}' \
                    '\nStructure scores: {0.str_scores}'
         return template.format(self)
+
+    def set_sentiment(self, sentiments, scores):
+        self.sentiments = sentiments
+        self.sentiment_scores = scores
+
+    def set_tree(self, mst_tree):
+        for pidx, cidx, weight in mst_tree:
+            print(pidx)
