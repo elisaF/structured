@@ -34,7 +34,6 @@ std::vector< std::vector<double> > MaxSpanTree::get_tree(std::vector< std::vecto
 {
     int rows = str_scores.size();
     int cols = str_scores[0].size();
-    std::cout << "vector length " << rows << " , " << cols << std::endl;
 
     std::vector< std::vector<double> > tree;
 

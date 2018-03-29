@@ -8,6 +8,6 @@ namespace trees {
 
         ~MaxSpanTree();
 
-        std::vector <std::vector<double>> get_tree(std::vector <std::vector<double>> str_scores);
+        std::vector <std::vector<double> > get_tree(std::vector <std::vector<double> > str_scores);
     };
 }

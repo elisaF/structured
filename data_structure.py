@@ -5,6 +5,7 @@ import random
 import math
 import unicodedata
 import itertools
+from postprocess import dependency_tree
 
 from utils import grouper
 
@@ -26,7 +27,7 @@ class RawData:
 
 
 class DataSet:
-    def  __init__(self, data):
+    def __init__(self, data):
         self.data = data
         self.num_examples = len(self.data)
 
@@ -229,6 +230,7 @@ class ProcessedDoc(object):
         self.tree = None
         self.sentiments = []
         self.sentiment_scores = []
+        self.tree = None
 
     def __repr__(self):
         text_repr = ' '.join(self.text).split("<split>")
@@ -242,13 +244,13 @@ class ProcessedDoc(object):
                    '\nPredicted label: {0.predicted_label}' \
                    '\nText: {0.texts}' \
                    '\nStructure scores shape: {0.str_scores.shape}' \
-                   '\nStructure scores: {0.str_scores}'
+                   '\nStructure scores: {0.str_scores}' \
+                   '\nSentiments: {0.sentiments}' \
+                   '\nSentiment scores: {0.sentiment_scores}' \
+                   '\nTree: {0.tree}'
         return template.format(self)
 
     def set_sentiment(self, sentiments, scores):
         self.sentiments = sentiments
         self.sentiment_scores = scores
 
-    def set_tree(self, mst_tree):
-        for pidx, cidx, weight in mst_tree:
-            print(pidx)

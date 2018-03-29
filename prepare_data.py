@@ -1,7 +1,8 @@
 from data_structure import Corpus
 import argparse
-
 import cPickle
+
+
 def main(train_path, dev_path, test_path):
     corpus = Corpus()
     corpus.load(train_path, 'train')
