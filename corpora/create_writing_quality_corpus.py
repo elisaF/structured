@@ -114,7 +114,7 @@ def write_files(data_splits, ldc_tar_file, new_corpus_dir):
                         all_xmls.append(xml)
                         with open(file_names[split_idx], 'a+') as fout:
                             writer = csv.writer(fout)
-                            writer.writerow(["_".join([year, folder1, folder2, xml]), plain_text.encode('utf-8'), label_idx])
+                            writer.writerow(["".join([year, folder1, folder2, xml.split(".")[0]]), plain_text.encode('utf-8'), label_idx])
                             csv_counter[split_idx] += 1
 
     print("Finished writing corpora: ", csv_counter)
