@@ -32,8 +32,8 @@ def create_data_splits(data_file_dir, trn_perc=.8, tst_perc=.1, dev_perc=.1):
             with open(data_file) as f:
                 verygood_list.extend([line.rstrip("\n") for line in f.readlines()])
 
-    # shuffle(typical_list)
-    # shuffle(verygood_list)
+    shuffle(typical_list)
+    shuffle(verygood_list)
 
     # use smaller class to determine size of data splits
     trn_num = int(np.floor(len(verygood_list) * trn_perc)) + 1  # TODO: Fix this hack!
