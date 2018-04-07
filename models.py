@@ -171,7 +171,7 @@ class StructureModel():
         _, str_scores_no_root = get_structure('doc', sents_str, max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'])  # [batch_size, doc_l+1, doc_l]
         str_scores_no_root = tf.matrix_transpose(str_scores_no_root)
         self.str_scores = str_scores_no_root
-        
+
         # str_scores = tf.matrix_transpose(str_scores_)  # soft parent
         # self.str_scores = str_scores  # shape is [batch_size, doc_l, doc_l+1]
         # sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)  # e_root + all e_i
@@ -182,7 +182,7 @@ class StructureModel():
         sents_r = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c], 2), w_comb, [[2], [0]]) + b_comb)
 
         sents_c_2 = tf.matmul(str_scores_no_root, sents_r)
-        sents_r_2 = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
+        sents_r_2 = LReLu(tf.tensordot(tf.concat([sents_r, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
 
         sents_output = sents_r_2
 
