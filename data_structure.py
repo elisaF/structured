@@ -230,7 +230,6 @@ class ProcessedDoc(object):
         self.tree = None
         self.sentiments = []
         self.sentiment_scores = []
-        self.tree = None
 
     def __repr__(self):
         text_repr = ' '.join(self.text).split("<split>")

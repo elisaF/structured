@@ -43,7 +43,7 @@ def calculate_sentiment(docs):
                 sentiments.append(hu_liu_sentiment(sent))
                 sentiment_scores.append(vader_sentiment(sent))
         doc.set_sentiment(sentiments, sentiment_scores)
-        if doc_counter % 200 == 0:
+        if doc_counter % 5000 == 0:
             print('Timestamp: {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now()))
             print("Processed sentiment for ", str(doc_counter+1), " documents.")
 
