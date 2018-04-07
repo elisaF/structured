@@ -146,7 +146,7 @@ class StructureModel():
         mask1 = tf.concat([temp1,mask1],2)
         mask2 = tf.concat([temp2,mask2],1)
 
-        str_scores_s_ = get_structure('sent', tokens_str, max_sent_l, mask1, mask2)  # batch_l,  sent_l+1, sent_l
+        str_scores_s_, _ = get_structure('sent', tokens_str, max_sent_l, mask1, mask2)  # batch_l,  sent_l+1, sent_l
         str_scores_s = tf.matrix_transpose(str_scores_s_)  # soft parent
         tokens_sem_root = tf.concat([tf.tile(embeddings_root_s, [batch_l * max_doc_l, 1, 1]), tokens_sem], 1)
         tokens_output_ = tf.matmul(str_scores_s, tokens_sem_root)
@@ -168,12 +168,20 @@ class StructureModel():
         sents_sem = tf.concat([sents_output[0][:,:,:self.config.dim_sem], sents_output[1][:,:,:self.config.dim_sem]], 2)
         sents_str = tf.concat([sents_output[0][:,:,self.config.dim_sem:], sents_output[1][:,:,self.config.dim_sem:]], 2)
 
-        str_scores_ = get_structure('doc', sents_str, max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'])  # [batch_size, doc_l+1, doc_l]
-        str_scores = tf.matrix_transpose(str_scores_)  # soft parent
-        self.str_scores = str_scores  # shape is [batch_size, doc_l, doc_l+1]
-        sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)
-        sents_output_ = tf.matmul(str_scores, sents_sem_root)
-        sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_output_], 2), w_comb, [[2], [0]]) + b_comb)
+        _, str_scores_no_root = get_structure('doc', sents_str, max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'])  # [batch_size, doc_l+1, doc_l]
+        self.str_scores = tf.matrix_transpose(str_scores_no_root)
+        # str_scores = tf.matrix_transpose(str_scores_)  # soft parent
+        # self.str_scores = str_scores  # shape is [batch_size, doc_l, doc_l+1]
+        # sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)  # e_root + all e_i
+        # sents_output_ = tf.matmul(str_scores, sents_sem_root)  # parent
+        sents_c = tf.matmul(str_scores_no_root, sents_sem)
+
+        # sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_output_], 2), w_comb, [[2], [0]]) + b_comb)  # no child??
+        sents_r = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c], 2), w_comb, [[2], [0]]) + b_comb)
+        sents_c_2 = tf.matmul(str_scores_no_root, sents_r)
+        sents_r_2 = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
+
+        sents_output = sents_r_2
 
         if (self.config.doc_attention == 'sum'):
             sents_output = sents_output * tf.expand_dims(mask_sents,2)
