@@ -145,6 +145,6 @@ def save_model(sess, step, model, logger):
 
 def evaluate_pretrained_model(config, logger):
     client = InMemoryClient(config.model_dir, config.vocab_file, config.data_output_file, logger)
-    test_batches = client.load_data(config)
-    client.predict(test_batches)
+    test_batches = client.load_data(config, config.evaluate_split)
+    client.predict(test_batches, config.evaluate_split)
 

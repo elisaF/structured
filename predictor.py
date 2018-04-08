@@ -33,7 +33,7 @@ class InMemoryClient:
 
         self.vocab = utils.load_dict(vocab_fname)
 
-    def predict(self, test_batches):
+    def predict(self, test_batches, evaluate_split="test"):
         self.logger.info('Sending request to inmemory model')
         self.logger.info('Model path: ' + str(self.model_path))
 
@@ -47,11 +47,11 @@ class InMemoryClient:
             all_count += len(batch)
             # save the scores
             batch_processed_docs = self.process_batch(len(batch), feed_dict, str_scores_batched, outputs)
-            self.logger.info("Processed %s test docs in batch %s", len(batch_processed_docs), ct)
+            self.logger.info("Processed %s %s docs in batch %s", len(batch_processed_docs), evaluate_split, ct)
             processed_docs.extend(batch_processed_docs)
         acc_test = 1.0 * corr_count / all_count
-        print('Test ACC: {}'.format(acc_test))
-        self.logger.info('Test ACC: {}'.format(acc_test))
+        print('{} ACC: {}'.format(evaluate_split, acc_test))
+        self.logger.info('{} ACC: {}'.format(evaluate_split, acc_test))
         cPickle.dump(processed_docs, open(self.output_fname, 'w'))
         self.logger.info("Finished processing all batches. Dumped to pickle file %s.", self.output_fname)
         return acc_test
@@ -129,9 +129,16 @@ class InMemoryClient:
                      self.t_variables['input_batch_l']: batch_size, self.t_variables['input_keep_prob']: 1}
         return feed_dict
 
-    def load_data(self, config):
-        _, _, test, _, _ = cPickle.load(open(config.data_file))
-        testset = DataSet(test)
-        test_batches = testset.get_batches(config.batch_size, 1, rand=False)
-        test_batches = [i for i in test_batches]
-        return test_batches
+    def load_data(self, config, evaluate_split="test"):
+        train, dev, test, _, _ = cPickle.load(open(config.data_file))
+        eval_set = None
+        if evaluate_split == "test":
+            eval_set = DataSet(test)
+        elif evaluate_split == "train":
+            eval_set = DataSet(train)
+        elif evaluate_split == "dev":
+            eval_set = DataSet(dev)
+
+        eval_batches = eval_set.get_batches(config.batch_size, 1, rand=False)
+        eval_batches = [i for i in eval_batches]
+        return eval_batches

@@ -37,6 +37,7 @@ flags.DEFINE_integer("log_period", 5000, "log_period")
 
 flags.DEFINE_string("model_dir", None, "directory to load model from")
 flags.DEFINE_string("vocab_file", None, "full path to vocabulary file")
+flags.DEFINE_string("evaluate_split", "test", "data split to evaluate on")
 flags.DEFINE_string("data_output_file", "data/yelp-sentiment-output.pkl", "full path to output pickle file")
 
 
