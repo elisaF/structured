@@ -28,6 +28,7 @@ flags.DEFINE_string("opt", 'Adagrad', "opt")
 flags.DEFINE_float("lr", 0.05, "lr")
 flags.DEFINE_float("norm", 1e-4, "norm")
 flags.DEFINE_integer("gpu", -1, "gpu")
+flags.DEFINE_string("model_dir_prefix", None, "prefix for saved model directories")
 
 flags.DEFINE_string("sent_attention", "max", "sent_attention")
 flags.DEFINE_string("doc_attention", "max", "doc_attention")

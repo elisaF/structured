@@ -95,11 +95,11 @@ def run(config):
                     loss = 0
                     if acc_dev > best_acc_dev:
                         best_acc_dev = acc_dev
-                        save_model(sess, ct, model, logger)
+                        save_model(sess, ct, model, logger, config.model_dir_prefix)
 
 
-def save_model(sess, step, model, logger):
-    export_path = "./trained_model-" + str(step)
+def save_model(sess, step, model, logger, model_dir_prefix):
+    export_path = model_dir_prefix + "-" + str(step)
     print('Exporting trained model to %s' % export_path)
     logger.info('Exporting trained model to %s' % export_path)
     builder = tf.saved_model.builder.SavedModelBuilder(export_path)
