@@ -31,6 +31,8 @@ flags.DEFINE_integer("gpu", -1, "gpu")
 
 flags.DEFINE_string("sent_attention", "max", "sent_attention")
 flags.DEFINE_string("doc_attention", "max", "doc_attention")
+flags.DEFINE_integer("tree_percolation_levels", 0, "tree_percolation_levels")
+flags.DEFINE_bool("skip_doc_bilstm", False, "skip_doc_bilstm")
 flags.DEFINE_bool("large_data", False, "large_data")
 flags.DEFINE_bool("test", False, "test")
 flags.DEFINE_integer("log_period", 5000, "log_period")

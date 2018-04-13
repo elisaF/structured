@@ -85,6 +85,12 @@ class StructureModel():
             b_softmax = tf.get_variable("bias_softmax", [self.config.dim_output], dtype=tf.float32,
                             initializer=tf.contrib.layers.xavier_initializer())
 
+            w_sem_doc = tf.get_variable("w_sem_doc", [2 * self.config.dim_sem, 2 * self.config.dim_sem], dtype=tf.float32,
+                                        initializer=tf.contrib.layers.xavier_initializer())
+
+            w_str_doc = tf.get_variable("w_str_doc", [2 * self.config.dim_sem, 2 * self.config.dim_str], dtype=tf.float32,
+                                        initializer=tf.contrib.layers.xavier_initializer())
+
         with tf.variable_scope("Structure/doc"):
             tf.get_variable("w_parser_p", [2 * self.config.dim_str, 2 * self.config.dim_str],
                             dtype=tf.float32,
@@ -124,12 +130,12 @@ class StructureModel():
         batch_l = self.t_variables['batch_l']
 
         tokens_input = tf.nn.embedding_lookup(self.embeddings, self.t_variables['token_idxs'][:, :max_doc_l, :max_sent_l])
-        tokens_input = tf.nn.dropout(tokens_input, self.t_variables['keep_prob'])
+        tokens_input = tf.nn.dropout(tokens_input, self.t_variables['keep_prob'])  # [batch_size, doc_l, sent_l, d_embed]
 
         mask_tokens = self.t_variables['mask_tokens'][:, :max_doc_l, :max_sent_l]
-        mask_sents = self.t_variables['mask_sents'][:, :max_doc_l]
-        [_, _, _, rnn_size] = tokens_input.get_shape().as_list()
-        tokens_input_do = tf.reshape(tokens_input, [batch_l * max_doc_l, max_sent_l, rnn_size])
+        mask_sents = self.t_variables['mask_sents'][:, :max_doc_l]  # [batch_size, doc_l]
+        # [_, _, _, rnn_size] = tokens_input.get_shape().as_list()
+        tokens_input_do = tf.reshape(tokens_input, [batch_l * max_doc_l, max_sent_l, self.config.d_embed])
 
         sent_l = tf.reshape(sent_l, [batch_l * max_doc_l])
         mask_tokens = tf.reshape(mask_tokens, [batch_l * max_doc_l, -1])
@@ -162,39 +168,44 @@ class StructureModel():
             tokens_output = tokens_output + tf.expand_dims((mask_tokens-1)*999,2)
             tokens_output = tf.reduce_max(tokens_output, 1)
 
-        sents_input = tf.reshape(tokens_output, [batch_l, max_doc_l, 2*self.config.dim_sem])
-        sents_output, _ = dynamicBiRNN(sents_input, doc_l, n_hidden=self.config.dim_hidden, cell_type=self.config.rnn_cell, cell_name='Model/doc')
+        if self.config.skip_doc_bilstm:
+            sents_sem = tf.matmul(tokens_output, w_sem_doc)
+            sents_sem = tf.reshape(sents_sem, [batch_l, max_doc_l, 2 * self.config.dim_sem])
+            sents_str = tf.matmul(tokens_output, w_str_doc)
+            sents_str = tf.reshape(sents_str, [batch_l, max_doc_l, 2 * self.config.dim_str])
+        else:
+            sents_input = tf.reshape(tokens_output, [batch_l, max_doc_l, 2 * self.config.dim_sem])
+            sents_output, _ = dynamicBiRNN(sents_input, doc_l, n_hidden=self.config.dim_hidden, cell_type=self.config.rnn_cell, cell_name='Model/doc')
+            sents_sem = tf.concat([sents_output[0][:,:,:self.config.dim_sem], sents_output[1][:,:,:self.config.dim_sem]], 2)  # [batch_l, doc+l, dim_sem*2]
+            sents_str = tf.concat([sents_output[0][:,:,self.config.dim_sem:], sents_output[1][:,:,self.config.dim_sem:]], 2)  # [batch_l, doc+l, dim_str*2]
 
-        sents_sem = tf.concat([sents_output[0][:,:,:self.config.dim_sem], sents_output[1][:,:,:self.config.dim_sem]], 2)
-        sents_str = tf.concat([sents_output[0][:,:,self.config.dim_sem:], sents_output[1][:,:,self.config.dim_sem:]], 2)
+        str_scores_, str_scores_no_root = get_structure('doc', sents_str, max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'])  # [batch_size, doc_l+1, doc_l]
+        str_scores = tf.matrix_transpose(str_scores_)
+        self.str_scores = str_scores  # shape is [batch_size, doc_l, doc_l+1]
 
-        _, str_scores_no_root = get_structure('doc', sents_str, max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'])  # [batch_size, doc_l+1, doc_l]
-        str_scores_no_root = tf.matrix_transpose(str_scores_no_root)
-        self.str_scores = str_scores_no_root
-
-        # str_scores = tf.matrix_transpose(str_scores_)  # soft parent
-        # self.str_scores = str_scores  # shape is [batch_size, doc_l, doc_l+1]
-        # sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)  # e_root + all e_i
-        # sents_output_ = tf.matmul(str_scores, sents_sem_root)  # parent
-        # sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_output_], 2), w_comb, [[2], [0]]) + b_comb)  # no child??
-
-        sents_c = tf.matmul(str_scores_no_root, sents_sem)
-        sents_r = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c], 2), w_comb, [[2], [0]]) + b_comb)
-
-        sents_c_2 = tf.matmul(str_scores_no_root, sents_r)
-        sents_r_2 = LReLu(tf.tensordot(tf.concat([sents_r, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
-
-        sents_output = sents_r_2
+        if self.config.tree_percolation_levels > 0:
+            sents_c = tf.matmul(str_scores_no_root, sents_sem)
+            sents_r = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c], 2), w_comb, [[2], [0]]) + b_comb)
+            sents_c_2 = tf.matmul(str_scores_no_root, sents_r)
+            sents_output = LReLu(tf.tensordot(tf.concat([sents_r, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
+        else:
+            sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)
+            sents_output_ = tf.matmul(str_scores, sents_sem_root)
+            sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_output_], 2), w_comb, [[2], [0]]) + b_comb)
 
         if (self.config.doc_attention == 'sum'):
-            sents_output = sents_output * tf.expand_dims(mask_sents,2)
-            sents_output = tf.reduce_sum(sents_output, 1)
+            sents_output = sents_output * tf.expand_dims(mask_sents,2)  # mask is [batch_size, doc_l, 1]
+            sents_output = tf.reduce_sum(sents_output, 1)  # [batch_size, dim_sem*2]
         elif (self.config.doc_attention == 'mean'):
             sents_output = sents_output * tf.expand_dims(mask_sents,2)
             sents_output = tf.reduce_sum(sents_output, 1)/tf.expand_dims(tf.cast(doc_l,tf.float32),1)
         elif (self.config.doc_attention == 'max'):
             sents_output = sents_output + tf.expand_dims((mask_sents-1)*999,2)
             sents_output = tf.reduce_max(sents_output, 1)
+        elif (self.config.doc_attention == 'weighted_sum'):
+            sents_weighted = sents_output * tf.expand_dims(str_scores[:,:,0], 2)
+            sents_output = sents_weighted * tf.expand_dims(mask_sents, 2) # unmask
+            sents_output = tf.reduce_sum(sents_output, 1)
 
         final_output = MLP(sents_output, 'output', self.t_variables['keep_prob'])
         self.final_output = tf.matmul(final_output, w_softmax) + b_softmax
