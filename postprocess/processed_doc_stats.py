@@ -3,6 +3,7 @@ import cPickle
 import dependency_tree
 import numpy as np
 from collections import Counter
+from scipy import stats
 
 
 def get_stats(docs):
@@ -10,6 +11,7 @@ def get_stats(docs):
     node_depths = Counter()
     sentiments = []
     sent_scores = []
+    other_sent_scores = []
     root_sentiments = []
     root_sent_scores = []
     root_position = Counter()
@@ -25,20 +27,24 @@ def get_stats(docs):
                 node_depths[key] += value
             sentiments.extend(doc.sentiments)
             sent_scores.extend(doc.sentiment_scores)
-            for root in doc.tree.deps[0]:
+            roots = np.array(doc.tree.deps[0])-1  # need to subtract to account for 0 root in the tree
+
+            for root in roots:
                 num_roots += 1
-                if root == 1:
+                if root == 0:
                     root_first += 1
-                elif root == len(doc.sentiments):
+                elif root == len(doc.sentiments)-1:
                     root_last += 1
                 # create 3 bins, for beginning, middle, end of doc
                 bins = np.array_split(np.arange(len(doc.sentiments)), 3)
                 for ix, bin in enumerate(bins):
                     if root in bin:
                         root_position[ix] += 1
-                root_sentiments.append(doc.sentiments[root-1])  # need to subtract to account for 0 root in the tree
-                root_sent_scores.append(doc.sentiment_scores[root - 1])
-
+                root_sentiments.append(doc.sentiments[root])
+                root_sent_scores.append(doc.sentiment_scores[root])
+    mask_roots = np.ones(len(doc.sentiment_scores), bool)
+    mask_roots[roots] = False
+    other_sent_scores.extend(np.array(doc.sentiment_scores)[mask_roots])
     print("Processed ", correct_docs, " out of ", len(docs), " documents that were labelled correctly.")
     print("\nStats for heights: ")
     print(np.mean(heights), np.std(heights), np.min(heights), np.max(heights), Counter(heights).keys(),
@@ -58,6 +64,9 @@ def get_stats(docs):
     print("\nRoot to position in sentence: ")
     print("First: ", root_first/num_roots, ", Last: ", root_last/num_roots, "Bins: ", root_position.keys(),
           root_position.values() / np.sum(root_position.values()))
+    t_stat, p_value_two_sided = stats.ttest_ind(np.abs(root_sent_scores), np.abs(other_sent_scores), equal_var=False)
+    print("T-statistic: ", t_stat, ", p_value for rejecting null hypothesis that mean(other sents) >= mean(root sents)",
+          p_value_two_sided/2)
 
 
 if __name__ == '__main__':
