@@ -188,6 +188,19 @@ class StructureModel():
             sents_r = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c], 2), w_comb, [[2], [0]]) + b_comb)
             sents_c_2 = tf.matmul(str_scores_no_root, sents_r)
             sents_output = LReLu(tf.tensordot(tf.concat([sents_r, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
+
+            if self.config.tree_percolation_levels > 1:
+                sents_c_3 = tf.matmul(str_scores_no_root, sents_output)
+                sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_3], 2), w_comb, [[2], [0]]) + b_comb)
+
+                if self.config.tree_percolation_levels > 2:
+                    sents_c_4 = tf.matmul(str_scores_no_root, sents_output)
+                    sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_4], 2), w_comb, [[2], [0]]) + b_comb)
+
+                    if self.config.tree_percolation_levels > 3:
+                        sents_c_5 = tf.matmul(str_scores_no_root, sents_output)
+                        sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_5], 2), w_comb, [[2], [0]]) + b_comb)
+
         else:
             sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)
             sents_output_ = tf.matmul(str_scores, sents_sem_root)
