@@ -7,7 +7,7 @@ extensions = [
     'mst',
     glob('mst.pyx')
     + glob('MaxSpanTree.cpp'),
-    extra_compile_args=["-std=c++11", "-stdlib=libc++"])
+    extra_compile_args=["-std=c++11"])
 ]
 
 setup(
