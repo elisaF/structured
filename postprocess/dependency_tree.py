@@ -26,8 +26,8 @@ class DependencyTree(object):
             else:
                 self.deps[pidx] = [cidx]
 
-            self._set_height()
-            self._set_node_depths()
+        self._set_height()
+        self._set_node_depths()
 
     def _set_height(self):
         self.height = len(self.deps.keys())
