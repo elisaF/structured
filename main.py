@@ -60,8 +60,8 @@ def run(config):
 
         config.dim_hidden = config.dim_sem + config.dim_str
 
-        print(config.__flags)
-        logger.critical(str(config.__flags))
+        print(config)
+        logger.critical(str(config))
         model = StructureModel(config)
         model.build()
         model.get_loss()

@@ -1,5 +1,5 @@
 import os
-
+import argparse
 import tensorflow as tf
 
 
@@ -12,43 +12,43 @@ from main import run as m
 #                lstm_hidden_dim_d=75, sem_dim=75, str_dim=50,
 #                comb_atv='tanh')
 
-flags = tf.app.flags
+parser = argparse.ArgumentParser()
+parser.add_argument("--rnn_cell", default="lstm")
+parser.add_argument("--data_file", default= "/data/yelp-sentiment.pkl")
 
-flags.DEFINE_string("rnn_cell", "lstm", "rnn_cell")
-flags.DEFINE_string("data_file", "/data/yelp-sentiment.pkl", "data_file")
+parser.add_argument("--batch_size", default=16, type=int)
+parser.add_argument("--epochs", default=30, type=int)
 
-flags.DEFINE_integer("batch_size", 16, "batch_size")
-flags.DEFINE_integer("epochs", 30, "epochs")
+parser.add_argument("--dim_str", default=50, type=int)
+parser.add_argument("--dim_sem", default=75, type=int)
+parser.add_argument("--dim_output", default=5, type=int)
+parser.add_argument("--keep_prob", default=0.7, type=float)
+parser.add_argument("--opt", default='Adagrad')
+parser.add_argument("--lr", default=0.05, type=float)
+parser.add_argument("--norm", default=1e-4, type=float)
+parser.add_argument("--gpu", default="-1")
+parser.add_argument("--model_dir_prefix")
 
-flags.DEFINE_integer("dim_str", 50, "dim_str")
-flags.DEFINE_integer("dim_sem", 75, "dim_sem")
-flags.DEFINE_integer("dim_output", 5, "dim_output")
-flags.DEFINE_float("keep_prob", 0.7, "keep_prob")
-flags.DEFINE_string("opt", 'Adagrad', "opt")
-flags.DEFINE_float("lr", 0.05, "lr")
-flags.DEFINE_float("norm", 1e-4, "norm")
-flags.DEFINE_integer("gpu", -1, "gpu")
-flags.DEFINE_string("model_dir_prefix", None, "prefix for saved model directories")
+parser.add_argument("--sent_attention", default="max")
+parser.add_argument("--doc_attention", default="max")
+parser.add_argument("--tree_percolation_levels", default=0, type=int)
+parser.add_argument("--skip_doc_bilstm", action='store_false')
+parser.add_argument("--large_data", action='store_false')
+parser.add_argument("--test", action='store_false')
+parser.add_argument("--log_period", default=5000, type=int)
 
-flags.DEFINE_string("sent_attention", "max", "sent_attention")
-flags.DEFINE_string("doc_attention", "max", "doc_attention")
-flags.DEFINE_integer("tree_percolation_levels", 0, "tree_percolation_levels")
-flags.DEFINE_bool("skip_doc_bilstm", False, "skip_doc_bilstm")
-flags.DEFINE_bool("large_data", False, "large_data")
-flags.DEFINE_bool("test", False, "test")
-flags.DEFINE_integer("log_period", 5000, "log_period")
-
-flags.DEFINE_string("model_dir", None, "directory to load model from")
-flags.DEFINE_string("vocab_file", None, "full path to vocabulary file")
-flags.DEFINE_string("evaluate_split", "test", "data split to evaluate on")
-flags.DEFINE_string("data_output_file", "data/yelp-sentiment-output.pkl", "full path to output pickle file")
+parser.add_argument("--model_dir")
+parser.add_argument("--vocab_file")
+parser.add_argument("--evaluate_split", default="test")
+parser.add_argument("--data_output_file", default="data/yelp-sentiment-output.pkl")
 
 
 def main(_):
-    config = flags.FLAGS
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(config.gpu)
+    config = parser.parse_args()
+    os.environ["CUDA_VISIBLE_DEVICES"] = config.gpu
 
     m(config)
+
 
 if __name__ == "__main__":
     tf.app.run()
