@@ -62,6 +62,7 @@ def run(config):
 
         print(config)
         logger.critical(str(config))
+
         model = StructureModel(config)
         model.build()
         model.get_loss()
@@ -76,11 +77,40 @@ def run(config):
             sess.run(gvi)
             sess.run(model.embeddings.assign(embedding_matrix.astype(np.float32)))
             loss = 0
-
+            num_exceptions = 0
+            num_runs = 0
             for ct, batch in tqdm.tqdm(train_batches, total=num_steps):
                 feed_dict = model.get_feed_dict(batch)
-                outputs, _, _loss = sess.run([model.final_output, model.opt, model.loss], feed_dict=feed_dict)
-
+                num_runs += 1
+                try:
+                   mask_diags, mask_diags_invert, mask_tokens_add, mask_tokens_mult, mask_ll_tokens_trans, mask_ll_tokens, mask_ll_sents, mask1, mask2, tokens_mask, sent_lens, ll_tokens, ll_tokens_unmasked, ll_sents, ll_sents_unmasked, outputs, _, _loss = sess.run([model.mask_diags, model.mask_diags_invert, model.mask_tokens_add, model.mask_tokens_mult, model.mask_ll_tokens_trans, model.mask_ll_tokens, model.mask_ll_sents, model.t_variables['mask_parser_1'], model.t_variables['mask_parser_2'], model.t_variables['mask_tokens'], model.t_variables['sent_l'], model.ll_tokens, model.ll_tokens_unmasked, model.ll_sents, model.ll_sents_unmasked, model.final_output, model.opt, model.loss], feed_dict=feed_dict)
+                except tf.errors.InvalidArgumentError as err:
+                   print("InvalidArg error: {0}".format(err))
+                   num_exceptions += 1
+                   print("Caught invalid arg error exception now ", num_exceptions, " out of ", num_runs, " times: ", num_exceptions/num_runs, ". The count and batch: ", ct)#, batch)
+                   continue
+                #print("Mask diags: ", mask_diags.shape, mask_diags)
+                #print("Mask diags invert: ", mask_diags_invert.shape, mask_diags_invert)
+                #print("mask_tokens_add: ", mask_tokens_add.shape, mask_tokens_add)
+                #print("mask_ll_tokens_diag: ", mask_ll_tokens_diag.shape, mask_ll_tokens_diag)
+                #print("mask_tokens_mult: ", mask_tokens_mult.shape, mask_tokens_mult)
+                #print(".mask_ll_tokens_trans: ", mask_ll_tokens_trans.shape, mask_ll_tokens_trans)
+                #print("Sent lengths: ", sent_lens.shape, sent_lens)
+                #print("Doc lengths: ", doc_lens.shape, doc_lens)
+                #print("Tokens mask: ", tokens_mask.shape, tokens_mask)
+                #print("Tokens mask ext: ", mask_ll_tokens.shape, mask_ll_tokens)
+                #print("Mask1: ", mask1.shape, mask1)
+                #print("Mask2: ", mask2.shape, mask2)
+                #print("LL tokens: ", ll_tokens.shape, ll_tokens)
+                #print("LL tokens unmasked: ", ll_tokens_unmasked.shape, ll_tokens_unmasked)
+                
+                #print("LL tokens determinant: ", np.linalg.det(ll_tokens))
+                print("LL tokens unmasked determinant: ", np.linalg.det(ll_tokens_unmasked))
+                #print("LL sents: ", ll_sents.shape, ll_sents)
+                #print("LL sents unmasked: ", ll_sents_unmasked.shape, ll_sents_unmasked)
+                #print("LL sents determinant: ", np.linalg.det(ll_sents))
+                print("LL sents unmasked determinant: ", np.linalg.det(ll_sents_unmasked))
+                #outputs, _, _loss = sess.run([model.final_output, model.opt, model.loss], feed_dict=feed_dict)
                 loss+=_loss
                 if(ct%config.log_period==0):
                     acc_test = evaluate(sess, model, test_batches)

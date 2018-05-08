@@ -51,8 +51,8 @@ def MLP(input, vname, keep_prob):
     return h2
 
 
-def get_structure(name, input, max_l, mask_parser_1, mask_parser_2):
-    def _getDep(input, mask1, mask2):
+def get_structure(name, input, max_l, mask_parser_1, mask_parser_2, mask_multiply, mask_add):
+    def _getDep(input, mask1, mask2, mask_multiply, mask_add):
         #input: batch_l, sent_l, rnn_size
         with tf.variable_scope("Structure/"+name, reuse=True, dtype=tf.float32):
             w_parser_p = tf.get_variable("w_parser_p")
@@ -76,15 +76,24 @@ def get_structure(name, input, max_l, mask_parser_1, mask_parser_2):
         tmp = tf.zeros_like(raw_scores_words[:,:,0])
         raw_scores_words = tf.matrix_set_diag(raw_scores_words,tmp)
 
-        str_scores, str_scores_no_root, LL = _getMatrixTree(raw_scores_root, raw_scores_words, mask1, mask2)
-        return str_scores, str_scores_no_root
+        str_scores, str_scores_no_root, LL, LL_unmasked = _getMatrixTree(raw_scores_root, raw_scores_words, mask1, mask2, mask_multiply, mask_add)
+        return str_scores, str_scores_no_root, LL, LL_unmasked
 
-    def _getMatrixTree(r, A, mask1, mask2):
+    def _getMatrixTree(r, A, mask1, mask2, mask_multiply, mask_add):
         L = tf.reduce_sum(A, 1)
         L = tf.matrix_diag(L)
         L = L - A
         LL = L[:, 1:, :]
         LL = tf.concat([tf.expand_dims(r, [1]), LL], 1)
+        #mask_ll = tf.reshape(mask_ll, [mask_ll.shape[0]*mask_ll.shape[1], mask_ll.shape[2]])
+        LL_unmasked = mask_multiply * LL
+        LL_unmasked = LL_unmasked + mask_add
+        #LL_unmasked = tf.transpose(mask_ll, perm=[0,2,1])*LL
+        #c=LL[1][1]
+        #LL_norm = tf.divide(LL, c)
+        #LL_norm_inv = tf.matrix_inverse(LL_norm)
+        #LL_inv = tf.multiply(LL_norm_inv, c)
+        #LL_inv = tf.matrix_inverse(LL_unmasked)  # batch_l, doc_l, doc_l
         LL_inv = tf.matrix_inverse(LL)  # batch_l, doc_l, doc_l
         d0 = tf.multiply(r, LL_inv[:, :, 0])  # root
         LL_inv_diag = tf.expand_dims(tf.matrix_diag_part(LL_inv), 2)
@@ -92,7 +101,7 @@ def get_structure(name, input, max_l, mask_parser_1, mask_parser_2):
         tmp2 = tf.multiply(A, tf.matrix_transpose(LL_inv))
         d_no_root = mask1 * tmp1 - mask2 * tmp2
         d = tf.concat([tf.expand_dims(d0,[1]), d_no_root], 1)  # add column at beginning for root
-        return d, d_no_root, LL
+        return d, d_no_root, LL, LL_unmasked
 
-    str_scores, str_scores_no_root = _getDep(input, mask_parser_1, mask_parser_2)
-    return str_scores, str_scores_no_root
+    str_scores, str_scores_no_root, LL, LL_unmasked = _getDep(input, mask_parser_1, mask_parser_2, mask_multiply, mask_add)
+    return str_scores, str_scores_no_root, LL, LL_unmasked
