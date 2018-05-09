@@ -5,12 +5,12 @@ import numpy as np
 np.set_printoptions(threshold='nan')
 import cPickle
 import logging
-from models import  StructureModel
+from models import StructureModel
 import tqdm
 import utils
 
-def load_data(config):
 
+def load_data(config):
     train, dev, test, embeddings, vocab = cPickle.load(open(config.data_file))
     trainset, devset, testset = DataSet(train), DataSet(dev), DataSet(test)
     vocab = dict([(v.index,k) for k,v in vocab.items()])
@@ -22,6 +22,7 @@ def load_data(config):
     test_batches = [i for i in test_batches]
     return len(train), train_batches, dev_batches, test_batches, embeddings, vocab
 
+
 def evaluate(sess, model, test_batches, logger):
     corr_count, all_count = 0, 0
     num_exceptions = 0
@@ -31,19 +32,13 @@ def evaluate(sess, model, test_batches, logger):
         feed_dict = model.get_feed_dict(batch)
         feed_dict[model.t_variables['keep_prob']] = 1.0
         try:
-           ll_tokens, ll_tokens_unmasked, ll_sents, ll_sents_unmasked, predictions = sess.run([model.ll_tokens, model.ll_tokens_unmasked, model.ll_sents, model.ll_sents_unmasked, model.final_output], feed_dict=feed_dict)
+           predictions = sess.run(model.final_output, feed_dict=feed_dict)
         except tf.errors.InvalidArgumentError as err:
            print("Test/Dev InvalidArg error: {0}".format(err))
            logger.debug("\nTest/Dev InvalidArg error: {0}".format(err))
            num_exceptions += 1
            print("Test/Dev Caught invalid arg error exception now ", num_exceptions, " out of ", num_runs, " times: ", num_exceptions/num_runs, ". The count and batch: ", ct)#, batch)
            continue        
-        print("Test/Dev LL sents: ", ll_sents)
-        logger.debug("Test/Dev LL sents: {0}".format(ll_sents))
-        print("Test/Dev LL sents determinant: ", np.linalg.det(ll_sents))
-        logger.debug("Test/Dev LL sents determinant: {0}".format(np.linalg.det(ll_sents)))
-        #print("Test/Dev LL sents unmasked: ", ll_sents_unmasked)
-        #print("Test/Dev LL sents unmasked determinant: ", np.linalg.det(ll_sents_unmasked))
         predictions = np.argmax(predictions, 1)
         corr_count += np.sum(predictions == feed_dict[model.t_variables['gold_labels']])
         all_count += len(batch)
@@ -100,37 +95,13 @@ def run(config):
                 feed_dict = model.get_feed_dict(batch)
                 num_runs += 1
                 try:
-                    mask_diags, mask_diags_invert, mask_tokens_add, mask_tokens_mult, mask_ll_tokens_trans, mask_ll_tokens, mask_ll_sents, mask1, mask2, tokens_mask, sent_lens, ll_tokens, ll_tokens_unmasked, ll_sents, ll_sents_unmasked, outputs, _, _loss = sess.run([model.mask_diags, model.mask_diags_invert, model.mask_tokens_add, model.mask_tokens_mult, model.mask_ll_tokens_trans, model.mask_ll_tokens, model.mask_ll_sents, model.t_variables['mask_parser_1'], model.t_variables['mask_parser_2'], model.t_variables['mask_tokens'], model.t_variables['sent_l'], model.ll_tokens, model.ll_tokens_unmasked, model.ll_sents, model.ll_sents_unmasked, model.final_output, model.opt, model.loss], feed_dict=feed_dict)
+                    outputs, _, _loss = sess.run([model.final_output, model.opt, model.loss], feed_dict=feed_dict)
                 except tf.errors.InvalidArgumentError as err:
                    print("InvalidArg error: {0}".format(err))
                    logger.debug("\nInvalidArg error: {0}".format(err))
                    num_exceptions += 1
                    print("Caught invalid arg error exception now ", num_exceptions, " out of ", num_runs, " times: ", num_exceptions/num_runs, ". The count and batch: ", ct)#, batch)
                    continue
-                #print("Mask diags: ", mask_diags.shape, mask_diags)
-                #print("Mask diags invert: ", mask_diags_invert.shape, mask_diags_invert)
-                #print("mask_tokens_add: ", mask_tokens_add.shape, mask_tokens_add)
-                #print("mask_ll_tokens_diag: ", mask_ll_tokens_diag.shape, mask_ll_tokens_diag)
-                #print("mask_tokens_mult: ", mask_tokens_mult.shape, mask_tokens_mult)
-                #print(".mask_ll_tokens_trans: ", mask_ll_tokens_trans.shape, mask_ll_tokens_trans)
-                #print("Sent lengths: ", sent_lens.shape, sent_lens)
-                #print("Doc lengths: ", doc_lens.shape, doc_lens)
-                #print("Tokens mask: ", tokens_mask.shape, tokens_mask)
-                #print("Tokens mask ext: ", mask_ll_tokens.shape, mask_ll_tokens)
-                #print("Mask1: ", mask1.shape, mask1)
-                #print("Mask2: ", mask2.shape, mask2)
-                #print("LL tokens: ", ll_tokens.shape, ll_tokens)
-                #print("LL tokens unmasked: ", ll_tokens_unmasked.shape, ll_tokens_unmasked)
-                
-                #print("LL tokens determinant: ", np.linalg.det(ll_tokens))
-                #print("LL tokens unmasked determinant: ", np.linalg.det(ll_tokens_unmasked))
-                print("LL sents: ", ll_sents.shape, ll_sents)
-                logger.debug("LL sents: {0} {1}".format(ll_sents.shape, ll_sents))
-                #print("LL sents unmasked: ", ll_sents_unmasked.shape, ll_sents_unmasked)
-                print("LL sents determinant: ", np.linalg.det(ll_sents))
-                logger.debug("LL sents determinant: {0}".format(np.linalg.det(ll_sents)))
-                #print("LL sents unmasked determinant: ", np.linalg.det(ll_sents_unmasked))
-                #outputs, _, _loss = sess.run([model.final_output, model.opt, model.loss], feed_dict=feed_dict)
                 loss+=_loss
                 if(ct%config.log_period==0):
                     acc_test = evaluate(sess, model, test_batches, logger)
@@ -145,11 +116,11 @@ def run(config):
                     loss = 0
                     if acc_dev > best_acc_dev:
                         best_acc_dev = acc_dev
-                        save_model(sess, ct, model, logger, config.model_dir_prefix)
+                        save_model(sess, ct, model, logger, config)
 
 
-def save_model(sess, step, model, logger, model_dir_prefix):
-    export_path = model_dir_prefix + "-" + str(step)
+def save_model(sess, step, model, logger, config):
+    export_path = config.model_dir_prefix + "-" + str(step)
     print('Exporting trained model to %s' % export_path)
     logger.info('Exporting trained model to %s' % export_path)
     builder = tf.saved_model.builder.SavedModelBuilder(export_path)
@@ -168,7 +139,10 @@ def save_model(sess, step, model, logger, model_dir_prefix):
     input_keep_prob = tf.saved_model.utils.build_tensor_info(model.t_variables['keep_prob'])
 
     output = tf.saved_model.utils.build_tensor_info(model.final_output)
-    str_scores = tf.saved_model.utils.build_tensor_info(model.str_scores)
+    if config.skip_doc_attention:
+        str_scores = tf.saved_model.utils.build_tensor_info(tf.convert_to_tensor(np.empty([1,1]), np.float32))
+    else:
+        str_scores = tf.saved_model.utils.build_tensor_info(model.str_scores)
     prediction_signature = (
         tf.saved_model.signature_def_utils.build_signature_def(
             inputs={'input_token_idxs': input_token_idxs, 'input_sent_l': input_sent_l,
@@ -196,5 +170,5 @@ def save_model(sess, step, model, logger, model_dir_prefix):
 def evaluate_pretrained_model(config, logger):
     client = InMemoryClient(config.model_dir, config.vocab_file, config.data_output_file, logger)
     test_batches = client.load_data(config, config.evaluate_split)
-    client.predict(test_batches, config.evaluate_split)
+    client.predict(test_batches, config.skip_doc_attention, config.evaluate_split)
 

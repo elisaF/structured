@@ -182,6 +182,7 @@ class StructureModel():
             tokens_output = tokens_output + tf.expand_dims((mask_tokens-1)*999,2)
             tokens_output = tf.reduce_max(tokens_output, 1)
 
+        # batch_l * max_doc_l, 200
         if self.config.skip_doc_bilstm:
             sents_sem = tf.matmul(tokens_output, w_sem_doc)
             sents_sem = tf.reshape(sents_sem, [batch_l, max_doc_l, 2 * self.config.dim_sem])
@@ -193,46 +194,53 @@ class StructureModel():
             sents_sem = tf.concat([sents_output[0][:,:,:self.config.dim_sem], sents_output[1][:,:,:self.config.dim_sem]], 2)  # [batch_l, doc+l, dim_sem*2]
             sents_str = tf.concat([sents_output[0][:,:,self.config.dim_sem:], sents_output[1][:,:,self.config.dim_sem:]], 2)  # [batch_l, doc+l, dim_str*2]
 
-        # create mask for setting all padded cells to 0
-        mask_ll_sents = tf.expand_dims(mask_sents,2)
-        self.mask_ll_sents_trans = tf.transpose(mask_ll_sents, perm=[0,2,1])
-        self.mask_ll_sents = mask_ll_sents
-        self.mask_sents_mult = mask_ll_sents * self.mask_ll_sents_trans
-
-        # create mask for setting the padded diagonals to 1
-        self.mask_sents_diags = tf.matrix_diag_part(self.mask_sents_mult)
-        self.mask_sents_diags_invert = tf.cast(tf.logical_not(tf.cast(self.mask_sents_diags, tf.bool)), tf.float32)
-        zero_matrix_sents = tf.zeros([batch_l, max_doc_l, max_doc_l], tf.float32)
-        self.mask_sents_add = tf.matrix_set_diag(zero_matrix_sents, self.mask_sents_diags_invert)
-
-        str_scores_, str_scores_no_root, LL_sents, LL_sents_unmasked = get_structure('doc', sents_str, max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'], self.mask_sents_mult, self.mask_sents_add)  # [batch_size, doc_l+1, doc_l]
-        self.ll_sents = LL_sents
-        self.ll_sents_unmasked = LL_sents_unmasked
-        str_scores = tf.matrix_transpose(str_scores_)
-        self.str_scores = str_scores  # shape is [batch_size, doc_l, doc_l+1]
-
-        if self.config.tree_percolation_levels > 0:
-            sents_c = tf.matmul(str_scores_no_root, sents_sem)
-            sents_r = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c], 2), w_comb, [[2], [0]]) + b_comb)
-            sents_c_2 = tf.matmul(str_scores_no_root, sents_r)
-            sents_output = LReLu(tf.tensordot(tf.concat([sents_r, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
-
-            if self.config.tree_percolation_levels > 1:
-                sents_c_3 = tf.matmul(str_scores_no_root, sents_output)
-                sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_3], 2), w_comb, [[2], [0]]) + b_comb)
-
-                if self.config.tree_percolation_levels > 2:
-                    sents_c_4 = tf.matmul(str_scores_no_root, sents_output)
-                    sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_4], 2), w_comb, [[2], [0]]) + b_comb)
-
-                    if self.config.tree_percolation_levels > 3:
-                        sents_c_5 = tf.matmul(str_scores_no_root, sents_output)
-                        sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_5], 2), w_comb, [[2], [0]]) + b_comb)
-
+        if self.config.skip_doc_attention:
+            if self.config.skip_doc_bilstm:
+                sents_input = tf.reshape(tokens_output, [batch_l, max_doc_l, 2 * self.config.dim_sem])
+                sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_input], 2), w_comb, [[2], [0]]) + b_comb)
+            else:
+                sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_input], 2), w_comb, [[2], [0]]) + b_comb)
         else:
-            sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)
-            sents_output_ = tf.matmul(str_scores, sents_sem_root)
-            sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_output_], 2), w_comb, [[2], [0]]) + b_comb)
+            # create mask for setting all padded cells to 0
+            mask_ll_sents = tf.expand_dims(mask_sents,2)
+            self.mask_ll_sents_trans = tf.transpose(mask_ll_sents, perm=[0,2,1])
+            self.mask_ll_sents = mask_ll_sents
+            self.mask_sents_mult = mask_ll_sents * self.mask_ll_sents_trans
+
+            # create mask for setting the padded diagonals to 1
+            self.mask_sents_diags = tf.matrix_diag_part(self.mask_sents_mult)
+            self.mask_sents_diags_invert = tf.cast(tf.logical_not(tf.cast(self.mask_sents_diags, tf.bool)), tf.float32)
+            zero_matrix_sents = tf.zeros([batch_l, max_doc_l, max_doc_l], tf.float32)
+            self.mask_sents_add = tf.matrix_set_diag(zero_matrix_sents, self.mask_sents_diags_invert)
+
+            str_scores_, str_scores_no_root, LL_sents, LL_sents_unmasked = get_structure('doc', sents_str, max_doc_l, self.t_variables['mask_parser_1'], self.t_variables['mask_parser_2'], self.mask_sents_mult, self.mask_sents_add)  # [batch_size, doc_l+1, doc_l]
+            self.ll_sents = LL_sents
+            self.ll_sents_unmasked = LL_sents_unmasked
+            str_scores = tf.matrix_transpose(str_scores_)
+            self.str_scores = str_scores  # shape is [batch_size, doc_l, doc_l+1]
+
+            if self.config.tree_percolation_levels > 0:
+                sents_c = tf.matmul(str_scores_no_root, sents_sem)
+                sents_r = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c], 2), w_comb, [[2], [0]]) + b_comb)
+                sents_c_2 = tf.matmul(str_scores_no_root, sents_r)
+                sents_output = LReLu(tf.tensordot(tf.concat([sents_r, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
+
+                if self.config.tree_percolation_levels > 1:
+                    sents_c_3 = tf.matmul(str_scores_no_root, sents_output)
+                    sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_3], 2), w_comb, [[2], [0]]) + b_comb)
+
+                    if self.config.tree_percolation_levels > 2:
+                        sents_c_4 = tf.matmul(str_scores_no_root, sents_output)
+                        sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_4], 2), w_comb, [[2], [0]]) + b_comb)
+
+                        if self.config.tree_percolation_levels > 3:
+                            sents_c_5 = tf.matmul(str_scores_no_root, sents_output)
+                            sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_c_5], 2), w_comb, [[2], [0]]) + b_comb)
+
+            else:
+                sents_sem_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_sem], 1)
+                sents_output_ = tf.matmul(str_scores, sents_sem_root)
+                sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_output_], 2), w_comb, [[2], [0]]) + b_comb)
 
         if (self.config.doc_attention == 'sum'):
             sents_output = sents_output * tf.expand_dims(mask_sents,2)  # mask is [batch_size, doc_l, 1]

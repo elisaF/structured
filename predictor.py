@@ -8,7 +8,7 @@ import utils
 
 
 class InMemoryClient:
-    def __init__(self, model_path, vocab_fname, output_fname, logger):
+    def __init__(self, model_path, vocab_fname, output_fname, logger, skip_attention):
 
         self.logger = logger
         self.model_path = model_path
@@ -33,7 +33,7 @@ class InMemoryClient:
 
         self.vocab = utils.load_dict(vocab_fname)
 
-    def predict(self, test_batches, evaluate_split="test"):
+    def predict(self, test_batches, skip_attention, evaluate_split="test"):
         self.logger.info('Sending request to inmemory model')
         self.logger.info('Model path: ' + str(self.model_path))
 
@@ -45,10 +45,11 @@ class InMemoryClient:
             predictions = np.argmax(outputs, 1)
             corr_count += np.sum(predictions == feed_dict[self.t_variables['input_gold_labels']])
             all_count += len(batch)
-            # save the scores
-            batch_processed_docs = self.process_batch(len(batch), feed_dict, str_scores_batched, outputs)
-            self.logger.info("Processed %s %s docs in batch %s", len(batch_processed_docs), evaluate_split, ct)
-            processed_docs.extend(batch_processed_docs)
+            # only save the scores if the model was configured with attention
+            if not skip_attention:
+                batch_processed_docs = self.process_batch(len(batch), feed_dict, str_scores_batched, outputs)
+                self.logger.info("Processed %s %s docs in batch %s", len(batch_processed_docs), evaluate_split, ct)
+                processed_docs.extend(batch_processed_docs)
         acc_test = 1.0 * corr_count / all_count
         print('{} ACC: {}'.format(evaluate_split, acc_test))
         self.logger.info('{} ACC: {}'.format(evaluate_split, acc_test))
