@@ -1,3 +1,4 @@
+from __future__ import division
 from data_structure import DataSet
 from predictor import InMemoryClient
 import tensorflow as tf

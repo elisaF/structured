@@ -1,4 +1,4 @@
-
+from __future__ import division
 import tensorflow as tf
 from neural import dynamicBiRNN, LReLu, MLP, get_structure
 import numpy as np

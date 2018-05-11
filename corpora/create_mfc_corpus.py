@@ -12,30 +12,35 @@ def create_corpus(json_file, save_path):
 
 
 def read_corpus(json_file):
+    irrelevant_count = 0
     X_ids_texts = []
     y_frames = []
     docs = json.load(open(json_file))
     for id in docs:
         id_num = id.split("-")[1]
         frame = docs[id]['primary_frame']
+        tone = docs[id]['primary_tone']
         irrelevant = docs[id]['irrelevant']
-        if frame and not irrelevant:
+        if frame and irrelevant:
+            irrelevant_count += 1
+        if frame and tone and not irrelevant:
             frame = str(frame).split(".")[0]
             y_frames.append(frame)
             text = [par for par in docs[id]['text'].split("\n") if len(par)>0][2:]
             X_ids_texts.append((id_num, text))
     print("Class frequencies: ", Counter(y_frames))
+    print("Irrelevant frames: ", irrelevant_count)
     return X_ids_texts, y_frames
 
 
 def create_partitions(X_data, y_data, save_path):
     X_train, X_devtest, y_train, y_devtest = train_test_split(X_data, y_data,
-                                                    random_state=42,
+                                                    random_state=4,
                                                     stratify=y_data,
                                                     test_size=0.2)
 
     X_dev, X_test, y_dev, y_test = train_test_split(X_devtest, y_devtest,
-                                                    random_state=42,
+                                                    random_state=4,
                                                     stratify=y_devtest,
                                                     test_size=0.5)
 
@@ -65,6 +70,8 @@ def create_partitions(X_data, y_data, save_path):
     ys = [y_train, y_test, y_dev]
 
     write_partitions(Xs, ys, save_path)
+
+    print("Class frequencies for train / dev / test: ", Counter(y_train), Counter(y_dev), Counter(y_test))
 
 
 def write_partitions(Xs, ys, save_path):

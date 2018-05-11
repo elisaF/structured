@@ -1,3 +1,4 @@
+from __future__ import division
 import cPickle
 import tensorflow as tf
 import logging
