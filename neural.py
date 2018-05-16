@@ -88,13 +88,12 @@ def get_structure(name, input, max_l, mask_parser_1, mask_parser_2, mask_multipl
         #mask_ll = tf.reshape(mask_ll, [mask_ll.shape[0]*mask_ll.shape[1], mask_ll.shape[2]])
         LL_unmasked = mask_multiply * LL
         LL_unmasked = LL_unmasked + mask_add
-        #LL_unmasked = tf.transpose(mask_ll, perm=[0,2,1])*LL
         #c=LL[1][1]
         #LL_norm = tf.divide(LL, c)
         #LL_norm_inv = tf.matrix_inverse(LL_norm)
         #LL_inv = tf.multiply(LL_norm_inv, c)
-        #LL_inv = tf.matrix_inverse(LL_unmasked)  # batch_l, doc_l, doc_l
-        LL_inv = tf.matrix_inverse(LL)  # batch_l, doc_l, doc_l
+        LL_inv = tf.matrix_inverse(LL_unmasked)  # batch_l, doc_l, doc_l
+        #LL_inv = tf.matrix_inverse(LL)  # batch_l, doc_l, doc_l
         d0 = tf.multiply(r, LL_inv[:, :, 0])  # root
         LL_inv_diag = tf.expand_dims(tf.matrix_diag_part(LL_inv), 2)
         tmp1 = tf.matrix_transpose(tf.multiply(tf.matrix_transpose(A), LL_inv_diag))

@@ -21,7 +21,7 @@ def read_corpus(json_file):
         frame = docs[id]['primary_frame']
         tone = docs[id]['primary_tone']
         irrelevant = docs[id]['irrelevant']
-        if frame and irrelevant:
+        if (frame and irrelevant) or (tone and irrelevant):
             irrelevant_count += 1
         if frame and tone and not irrelevant:
             frame = str(frame).split(".")[0]

@@ -19,8 +19,16 @@ def get_stats(docs):
     root_last = 0
     correct_docs = 0
     num_roots = 0
+    normalized_arc_lengths = []
     for doc in docs:
         if doc.gold_label == doc.predicted_label:
+            edges = doc.tree.edges
+            lengths = np.zeros([len(edges)])
+            for i, edge in enumerate(edges):
+                lengths[i] = np.abs(edge.src_idx-edge.tgt_idx)
+            lengths /= len(edges)
+            normalized_arc_lengths.extend(lengths)
+
             correct_docs += 1
             heights.append(doc.tree.height)
             for key, value in doc.tree.node_depths.items():
@@ -42,9 +50,13 @@ def get_stats(docs):
                         root_position[ix] += 1
                 root_sentiments.append(doc.sentiments[root])
                 root_sent_scores.append(doc.sentiment_scores[root])
-    mask_roots = np.ones(len(doc.sentiment_scores), bool)
-    mask_roots[roots] = False
-    other_sent_scores.extend(np.array(doc.sentiment_scores)[mask_roots])
+            mask_roots = np.ones(len(doc.sentiment_scores), bool)
+            mask_roots[roots] = False
+            other_sent_scores.extend(np.array(doc.sentiment_scores)[mask_roots])
+
+    print("Stats for normalized arc length: ", np.mean(np.array(normalized_arc_lengths)),
+          np.std(np.array(normalized_arc_lengths)), np.min(np.array(normalized_arc_lengths)),
+          np.max(np.array(normalized_arc_lengths)))
     print("Processed ", correct_docs, " out of ", len(docs), " documents that were labelled correctly.")
     print("\nStats for heights: ")
     print(np.mean(heights), np.std(heights), np.min(heights), np.max(heights), Counter(heights).keys(),

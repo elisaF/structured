@@ -4,8 +4,8 @@ import cPickle
 import dependency_tree
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
-from spacy.en import English
-parser = English()
+import spacy
+parser = spacy.load('en')
 
 
 def tokenizeText(sentence):
