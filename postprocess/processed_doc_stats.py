@@ -4,6 +4,7 @@ import dependency_tree
 import numpy as np
 from collections import Counter
 from scipy import stats
+from scipy.stats import entropy
 
 
 def get_stats(docs):
@@ -20,14 +21,29 @@ def get_stats(docs):
     correct_docs = 0
     num_roots = 0
     normalized_arc_lengths = []
+    leaf_node_proportions = []
+    parent_entropies = []
+
     for doc in docs:
         if doc.gold_label == doc.predicted_label:
+            # how long are the edges?
             edges = doc.tree.edges
             lengths = np.zeros([len(edges)])
             for i, edge in enumerate(edges):
                 lengths[i] = np.abs(edge.src_idx-edge.tgt_idx)
             lengths /= len(edges)
             normalized_arc_lengths.extend(lengths)
+
+            # how many nodes are leaves?
+            num_leaf_nodes = len(edges) - len(doc.tree.deps.keys()) + 1  # don't count the root
+            leaf_node_proportions.append(num_leaf_nodes/len(edges))
+
+            # how many children per parent?
+            parents_list = []
+            for i in range(1, len(edges)+1):
+                parent = next(key for key, value in doc.tree.deps.items() if i in value)
+                parents_list.append(parent)
+            parent_entropies.append(entropy_for_parents(parents_list))
 
             correct_docs += 1
             heights.append(doc.tree.height)
@@ -57,6 +73,12 @@ def get_stats(docs):
     print("Stats for normalized arc length: ", np.mean(np.array(normalized_arc_lengths)),
           np.std(np.array(normalized_arc_lengths)), np.min(np.array(normalized_arc_lengths)),
           np.max(np.array(normalized_arc_lengths)))
+    print("Stats for leaf node proportions: ", np.mean(np.array(leaf_node_proportions)),
+          np.std(np.array(leaf_node_proportions)), np.min(np.array(leaf_node_proportions)),
+          np.max(np.array(leaf_node_proportions)))
+    print("Stats for parent entropy: ", np.mean(np.array(parent_entropies)),
+          np.std(np.array(parent_entropies)), np.min(np.array(parent_entropies)),
+          np.max(np.array(parent_entropies)))
     print("Processed ", correct_docs, " out of ", len(docs), " documents that were labelled correctly.")
     print("\nStats for heights: ")
     print(np.mean(heights), np.std(heights), np.min(heights), np.max(heights), Counter(heights).keys(),
@@ -79,6 +101,11 @@ def get_stats(docs):
     t_stat, p_value_two_sided = stats.ttest_ind(np.abs(root_sent_scores), np.abs(other_sent_scores), equal_var=False)
     print("T-statistic: ", t_stat, ", p_value for rejecting null hypothesis that mean(other sents) >= mean(root sents)",
           p_value_two_sided/2)
+
+
+def entropy_for_parents(labels, base=None):
+    value, counts = np.unique(labels, return_counts=True)
+    return entropy(counts, base=base)
 
 
 if __name__ == '__main__':
