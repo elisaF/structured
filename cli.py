@@ -15,7 +15,7 @@ from main import run as m
 parser = argparse.ArgumentParser()
 parser.add_argument("--rnn_cell", default="lstm")
 parser.add_argument("--data_file", default= "/data/yelp-sentiment.pkl")
-
+parser.add_argument("--debug", action='store_true')
 parser.add_argument("--batch_size", default=16, type=int)
 parser.add_argument("--epochs", default=30, type=int)
 
