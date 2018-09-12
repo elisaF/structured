@@ -8,7 +8,9 @@ import cPickle
 import logging
 from models import StructureModel
 import tqdm
+import time
 import utils
+from tensorflow.python import debug as tf_debug
 
 
 def load_data(config):
@@ -26,20 +28,10 @@ def load_data(config):
 
 def evaluate(sess, model, test_batches, logger):
     corr_count, all_count = 0, 0
-    num_exceptions = 0
-    num_runs = 0
     for ct, batch in test_batches:
-        num_runs += 1
         feed_dict = model.get_feed_dict(batch)
         feed_dict[model.t_variables['keep_prob']] = 1.0
-        try:
-           predictions = sess.run(model.final_output, feed_dict=feed_dict)
-        except tf.errors.InvalidArgumentError as err:
-           print("Test/Dev InvalidArg error: {0}".format(err))
-           logger.debug("\nTest/Dev InvalidArg error: {0}".format(err))
-           num_exceptions += 1
-           print("Test/Dev Caught invalid arg error exception now ", num_exceptions, " out of ", num_runs, " times: ", num_exceptions/num_runs, ". The count and batch: ", ct)#, batch)
-           continue        
+        predictions = sess.run(model.final_output, feed_dict=feed_dict)   
         predictions = np.argmax(predictions, 1)
         corr_count += np.sum(predictions == feed_dict[model.t_variables['gold_labels']])
         all_count += len(batch)
@@ -48,18 +40,22 @@ def evaluate(sess, model, test_batches, logger):
 
 
 def run(config):
-    import random
-
-    hash = random.getrandbits(32)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    ah = logging.FileHandler(str(hash)+'.log')
+    time_log = str(time.time())
+    ah = logging.FileHandler(time_log + '.log')
     ah.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(message)s')
     ah.setFormatter(formatter)
     logger.addHandler(ah)
+    tf.set_random_seed(config.seed)
+    initializer = utils.Initializer(config.init_seed)
+    xavier_init = initializer.xavier_init()
 
     if config.model_dir:
+        print(config)
+        logger.critical(str(config))
+
         evaluate_pretrained_model(config, logger)
 
     else:
@@ -67,7 +63,7 @@ def run(config):
         num_examples, train_batches, dev_batches, test_batches, embedding_matrix, vocab = load_data(config)
         logger.debug("Finished loading data.")
         # save vocab to file
-        utils.save_dict(vocab, str(hash)+'.dict')
+        utils.save_dict(vocab, time_log +'.dict')
         print("Embedding matrix size: ", embedding_matrix.shape)
         config.n_embed, config.d_embed = embedding_matrix.shape
 
@@ -76,33 +72,25 @@ def run(config):
         print(config)
         logger.critical(str(config))
 
-        model = StructureModel(config)
+        model = StructureModel(config, xavier_init)
         model.build()
         model.get_loss()
-        # trainer = Trainer(config)
 
         num_batches_per_epoch = int(num_examples / config.batch_size)
         num_steps = config.epochs * num_batches_per_epoch
         best_acc_dev = 0.0
 
+        #with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=1, intra_op_parallelism_threads=1)) as sess:
         with tf.Session() as sess:
             gvi = tf.global_variables_initializer()
             sess.run(gvi)
             sess.run(model.embeddings.assign(embedding_matrix.astype(np.float32)))
+            if config.debug:
+                sess = tf_debug.LocalCLIDebugWrapperSession(sess)
             loss = 0
-            num_exceptions = 0
-            num_runs = 0
             for ct, batch in tqdm.tqdm(train_batches, total=num_steps):
                 feed_dict = model.get_feed_dict(batch)
-                num_runs += 1
-                try:
-                    outputs, _, _loss = sess.run([model.final_output, model.opt, model.loss], feed_dict=feed_dict)
-                except tf.errors.InvalidArgumentError as err:
-                   print("InvalidArg error: {0}".format(err))
-                   logger.debug("\nInvalidArg error: {0}".format(err))
-                   num_exceptions += 1
-                   print("Caught invalid arg error exception now ", num_exceptions, " out of ", num_runs, " times: ", num_exceptions/num_runs, ". The count and batch: ", ct)#, batch)
-                   continue
+                outputs, _, _loss = sess.run([model.final_output, model.opt, model.loss], feed_dict=feed_dict)
                 loss+=_loss
                 if(ct%config.log_period==0):
                     acc_test = evaluate(sess, model, test_batches, logger)

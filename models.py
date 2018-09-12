@@ -5,8 +5,9 @@ import numpy as np
 
 
 class StructureModel():
-    def __init__(self, config):
+    def __init__(self, config, xavier_init):
         self.config = config
+        self.xavier_init = xavier_init
         t_variables = {}
         t_variables['keep_prob'] = tf.placeholder(tf.float32)
         t_variables['batch_l'] = tf.placeholder(tf.int32)
@@ -66,62 +67,62 @@ class StructureModel():
     def build(self):
         with tf.variable_scope("Embeddings"):
             self.embeddings = tf.get_variable("emb", [self.config.n_embed, self.config.d_embed], dtype=tf.float32,
-                                         initializer=tf.contrib.layers.xavier_initializer())
+                                         initializer=self.xavier_init)
             embeddings_root = tf.get_variable("emb_root", [1, 1, 2 * self.config.dim_sem], dtype=tf.float32,
-                                                  initializer=tf.contrib.layers.xavier_initializer())
+                                                  initializer=self.xavier_init)
             embeddings_root_s = tf.get_variable("emb_root_s", [1, 1,2* self.config.dim_sem], dtype=tf.float32,
-                                                    initializer=tf.contrib.layers.xavier_initializer())
+                                                    initializer=self.xavier_init)
         with tf.variable_scope("Model"):
             w_comb = tf.get_variable("w_comb", [4 * self.config.dim_sem, 2 * self.config.dim_sem], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             b_comb = tf.get_variable("bias_comb", [2 * self.config.dim_sem], dtype=tf.float32, initializer=tf.constant_initializer())
 
             w_comb_s = tf.get_variable("w_comb_s", [4 * self.config.dim_sem, 2 * self.config.dim_sem], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             b_comb_s = tf.get_variable("bias_comb_s", [2 * self.config.dim_sem], dtype=tf.float32, initializer=tf.constant_initializer())
 
             w_softmax = tf.get_variable("w_softmax", [2 * self.config.dim_sem, self.config.dim_output], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             b_softmax = tf.get_variable("bias_softmax", [self.config.dim_output], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
 
             w_sem_doc = tf.get_variable("w_sem_doc", [2 * self.config.dim_sem, 2 * self.config.dim_sem], dtype=tf.float32,
-                                        initializer=tf.contrib.layers.xavier_initializer())
+                                        initializer=self.xavier_init)
 
             w_str_doc = tf.get_variable("w_str_doc", [2 * self.config.dim_sem, 2 * self.config.dim_str], dtype=tf.float32,
-                                        initializer=tf.contrib.layers.xavier_initializer())
+                                        initializer=self.xavier_init)
 
         with tf.variable_scope("Structure/doc"):
             tf.get_variable("w_parser_p", [2 * self.config.dim_str, 2 * self.config.dim_str],
                             dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("w_parser_c", [2 * self.config.dim_str, 2 * self.config.dim_str],
                             dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("w_parser_s", [2 * self.config.dim_str, 2 * self.config.dim_str], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("bias_parser_p", [2 * self.config.dim_str], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("bias_parser_c", [2 * self.config.dim_str], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("w_parser_root", [2 * self.config.dim_str, 1], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
         with tf.variable_scope("Structure/sent"):
             tf.get_variable("w_parser_p", [2 * self.config.dim_str, 2 * self.config.dim_str],
                             dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("w_parser_c", [2 * self.config.dim_str, 2 * self.config.dim_str],
                             dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("bias_parser_p", [2 * self.config.dim_str], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("bias_parser_c", [2 * self.config.dim_str], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
 
             tf.get_variable("w_parser_s", [2 * self.config.dim_str, 2 * self.config.dim_str], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
             tf.get_variable("w_parser_root", [2 * self.config.dim_str, 1], dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=self.xavier_init)
 
         sent_l = self.t_variables['sent_l']
         doc_l = self.t_variables['doc_l']
@@ -140,7 +141,7 @@ class StructureModel():
         sent_l = tf.reshape(sent_l, [batch_l * max_doc_l])
         mask_tokens = tf.reshape(mask_tokens, [batch_l * max_doc_l, -1])
 
-        tokens_output, _ = dynamicBiRNN(tokens_input_do, sent_l, n_hidden=self.config.dim_hidden,
+        tokens_output, _ = dynamicBiRNN(tokens_input_do, sent_l, n_hidden=self.config.dim_hidden, xavier_init=self.xavier_init,
                                         cell_type=self.config.rnn_cell, cell_name='Model/sent')
         tokens_sem = tf.concat([tokens_output[0][:,:,:self.config.dim_sem], tokens_output[1][:,:,:self.config.dim_sem]], 2)
         tokens_str = tf.concat([tokens_output[0][:,:,self.config.dim_sem:], tokens_output[1][:,:,self.config.dim_sem:]], 2)
@@ -188,7 +189,8 @@ class StructureModel():
             sents_str = tf.reshape(sents_str, [batch_l, max_doc_l, 2 * self.config.dim_str])
         else:
             sents_input = tf.reshape(tokens_output, [batch_l, max_doc_l, 2 * self.config.dim_sem])
-            sents_output, _ = dynamicBiRNN(sents_input, doc_l, n_hidden=self.config.dim_hidden, cell_type=self.config.rnn_cell, cell_name='Model/doc')
+            sents_output, _ = dynamicBiRNN(sents_input, doc_l, n_hidden=self.config.dim_hidden, xavier_init=self.xavier_init, 
+                                           cell_type=self.config.rnn_cell, cell_name='Model/doc')
             sents_sem = tf.concat([sents_output[0][:,:,:self.config.dim_sem], sents_output[1][:,:,:self.config.dim_sem]], 2)  # [batch_l, doc+l, dim_sem*2]
             sents_str = tf.concat([sents_output[0][:,:,self.config.dim_sem:], sents_output[1][:,:,self.config.dim_sem:]], 2)  # [batch_l, doc+l, dim_str*2]
 
@@ -239,10 +241,10 @@ class StructureModel():
                 sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_output_], 2), w_comb, [[2], [0]]) + b_comb)
 
         if (self.config.doc_attention == 'sum'):
-            sents_output = sents_output * tf.expand_dims(mask_sents,2)  # mask is [batch_size, doc_l, 1]
+            sents_output = sents_output * tf.expand_dims(mask_sents, 2)  # mask is [batch_size, doc_l, 1]
             sents_output = tf.reduce_sum(sents_output, 1)  # [batch_size, dim_sem*2]
         elif (self.config.doc_attention == 'mean'):
-            sents_output = sents_output * tf.expand_dims(mask_sents,2)
+            sents_output = sents_output * tf.expand_dims(mask_sents, 2)
             sents_output = tf.reduce_sum(sents_output, 1)/tf.expand_dims(tf.cast(doc_l,tf.float32),1)
         elif (self.config.doc_attention == 'max'):
             sents_output = sents_output + tf.expand_dims((mask_sents-1)*999,2)
@@ -252,7 +254,7 @@ class StructureModel():
             sents_output = sents_weighted * tf.expand_dims(mask_sents, 2) # unmask
             sents_output = tf.reduce_sum(sents_output, 1)
 
-        final_output = MLP(sents_output, 'output', self.t_variables['keep_prob'])
+        final_output = MLP(sents_output, 'output', self.t_variables['keep_prob'], self.config.seed, self.xavier_init)
         self.final_output = tf.matmul(final_output, w_softmax) + b_softmax
 
     def get_loss(self):

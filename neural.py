@@ -6,16 +6,16 @@ def LReLu(x, leak=0.01):
     return f1 * x + f2 * tf.abs(x)
 
 
-def dynamicBiRNN(input, seqlen, n_hidden, cell_type, cell_name=''):
+def dynamicBiRNN(input, seqlen, n_hidden, xavier_init, cell_type, cell_name=''):
     batch_size = tf.shape(input)[0]
-    with tf.variable_scope(cell_name + 'fw', initializer=tf.contrib.layers.xavier_initializer(), dtype = tf.float32):
+    with tf.variable_scope(cell_name + 'fw', initializer=xavier_init, dtype = tf.float32):
         if(cell_type == 'gru'):
             fw_cell = tf.contrib.rnn.GRUCell(n_hidden)
         elif(cell_type == 'lstm'):
             fw_cell = tf.contrib.rnn.LSTMCell(n_hidden)
 
         fw_initial_state = fw_cell.zero_state(batch_size, tf.float32)
-    with tf.variable_scope(cell_name + 'bw', initializer=tf.contrib.layers.xavier_initializer(), dtype = tf.float32):
+    with tf.variable_scope(cell_name + 'bw', initializer=xavier_init, dtype = tf.float32):
         if(cell_type == 'gru'):
             bw_cell = tf.contrib.rnn.GRUCell(n_hidden)
         elif(cell_type == 'lstm'):
@@ -29,24 +29,24 @@ def dynamicBiRNN(input, seqlen, n_hidden, cell_type, cell_name=''):
     return outputs, output_states
 
 
-def MLP(input, vname, keep_prob):
+def MLP(input, vname, keep_prob, seed, xavier_init):
     dim_input = input.shape[1]
     with tf.variable_scope("Model"):
         w1 = tf.get_variable("w1_"+vname,[dim_input, dim_input],
                             dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=xavier_init)
         b1 = tf.get_variable("bias1_" + vname,[dim_input],
                             dtype=tf.float32,
                             initializer=tf.constant_initializer())
         w2 = tf.get_variable("w2_" + vname,[dim_input, dim_input],
                             dtype=tf.float32,
-                            initializer=tf.contrib.layers.xavier_initializer())
+                            initializer=xavier_init)
         b2 = tf.get_variable("bias2_" + vname,[dim_input],
                             dtype=tf.float32,
                              initializer=tf.constant_initializer())
-    input = tf.nn.dropout(input,keep_prob)
+    input = tf.nn.dropout(input,keep_prob,seed=seed)
     h1 = LReLu(tf.matmul(input, w1) + b1)
-    h1 = tf.nn.dropout(h1,keep_prob)
+    h1 = tf.nn.dropout(h1,keep_prob, seed=seed)
     h2 = LReLu(tf.matmul(h1, w2) + b2)
     return h2
 
@@ -65,7 +65,6 @@ def get_structure(name, input, max_l, mask_parser_1, mask_parser_2, mask_multipl
 
         parent = tf.tanh(tf.tensordot(input, w_parser_p, [[2], [0]]) + b_parser_p)
         child = tf.tanh(tf.tensordot(input, w_parser_c, [[2], [0]])+b_parser_c)
-        # rep = LReLu(parent+child)
         temp = tf.tensordot(parent,w_parser_s,[[-1],[0]])
         raw_scores_words_ = tf.matmul(temp,tf.matrix_transpose(child))
 

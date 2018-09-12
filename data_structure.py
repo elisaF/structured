@@ -1,14 +1,15 @@
 from __future__ import division
 import gensim
 import numpy as np
-import re
 import random
 import math
 import unicodedata
 import itertools
-from postprocess import dependency_tree
 
 from utils import grouper
+
+np.random.seed(1234)
+random.seed(1234)
 
 
 def strip_accents(s):
@@ -18,12 +19,9 @@ def strip_accents(s):
 
 class RawData:
     def __init__(self):
-        self.userStr = ''
-        self.productStr = ''
         self.reviewText = ''
         self.goldRating = -1
         self.predictedRating = -1
-        self.userStr = ''
         self.id = -1
 
 
@@ -72,6 +70,12 @@ class Instance:
         k = max([len(sent) for sent in self.token_idxs])
         return k
 
+    def __repr__(self):
+        template = '\nDoc id: {0.id} ' \
+                   '\nGold label: {0.goldLabel}' \
+                   '\nTokens: {0.token_idxs}'
+        return template.format(self)
+
 
 class Corpus:
     def __init__(self):
@@ -92,20 +96,10 @@ class Corpus:
         for dataset in self.doclst:
             for doc in self.doclst[dataset]:
                 doc.sent_lst = doc.reviewText.split('<split2>')
-                doc.sent_lst = [re.sub(r"[^A-Za-z0-9(),!?\'\`_]", " ",sent) for sent in doc.sent_lst]
+                #doc.sent_lst = [re.sub(r"[^A-Za-z0-9(),!?\'\`_]", " ",sent) for sent in doc.sent_lst]
                 doc.sent_token_lst = [sent.split() for sent in doc.sent_lst]
                 doc.sent_token_lst = [sent_tokens for sent_tokens in doc.sent_token_lst if(len(sent_tokens)!=0)]
             self.doclst[dataset] = [doc for doc in self.doclst[dataset] if len(doc.sent_token_lst)!=0]
-
-    def build_vocab(self):
-        self.vocab = {}
-        for doc in self.doclst:
-            for sent in doc.sent_token_lst:
-                for token in sent:
-                    if(token not in self.vocab):
-                        self.vocab[token] = {'idx':len(self.vocab), 'count':1}
-                    else:
-                        self.vocab[token]['count'] += 1
 
     def w2v(self, options):
         sentences = []
@@ -116,9 +110,9 @@ class Corpus:
                 sentences.extend(doc.sent_token_lst)
         print(sentences[0])
         if(options['skip_gram']):
-            self.w2v_model = gensim.models.word2vec.Word2Vec(size=options['emb_size'], window=5, min_count=5, workers=4, sg=1)
+            self.w2v_model = gensim.models.word2vec.Word2Vec(size=options['emb_size'], window=5, min_count=options['min_count'], workers=4, sg=1)
         else:
-            self.w2v_model = gensim.models.word2vec.Word2Vec(size=options['emb_size'], window=5, min_count=5, workers=4)
+            self.w2v_model = gensim.models.word2vec.Word2Vec(size=options['emb_size'], window=5, min_count=options['min_count'], workers=4)
         self.w2v_model.scan_vocab(sentences)  # initial survey
         rtn = self.w2v_model.scale_vocab(dry_run = True)  # trim by min_count & precalculate downsampling
         print(rtn)
@@ -137,17 +131,6 @@ class Corpus:
         instances_test = self.prepare_for_test( options, 'test')
         return instances, instances_dev, instances_test, embeddings, vocab
 
-    def prepare_notest(self, options):
-        instances, instances_dev, instances_test = [],[],[]
-        instances_, embeddings, vocab = self.prepare_for_training(options)
-        print(len(instances))
-        for bucket in instances_:
-            num_test = len(bucket) / 10
-            instances_test.append(bucket[:num_test])
-            instances.append(bucket[num_test:])
-
-        return instances, instances_dev, instances_test, embeddings, vocab
-
     def prepare_for_training(self, options):
         instancelst = []
         embeddings = np.zeros([len(self.vocab)+1,options['emb_size']])
@@ -164,10 +147,12 @@ class Corpus:
             if n_sents > options['max_sents']:
                 ids_filtered.append(doc.id)
                 n_filtered += 1
+                print(doc.id, " too many sents: ", n_sents)
                 continue
             if max_n_tokens > options['max_tokens']:
                 ids_filtered.append(doc.id)
                 n_filtered += 1
+                print(doc.id, " too many tokens: ", max_n_tokens)
                 continue
             sent_token_idx = []
             for i in range(len(doc.sent_token_lst)):
@@ -198,10 +183,12 @@ class Corpus:
             if n_sents > options['max_sents']:
                 ids_filtered.append(doc.id)
                 n_filtered += 1
+                print(doc.id, " too many sents: ", n_sents)
                 continue
             if max_n_tokens > options['max_tokens']:
                 ids_filtered.append(doc.id)
                 n_filtered += 1
+                print(doc.id, " too many tokens: ", max_n_tokens)
                 continue
             sent_token_idx = []
             for i in range(len(doc.sent_token_lst)):

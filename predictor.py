@@ -119,8 +119,8 @@ class InMemoryClient:
 
         mask_parser_1 = np.ones([batch_size, max_doc_l, max_doc_l], np.float32)
         mask_parser_2 = np.ones([batch_size, max_doc_l, max_doc_l], np.float32)
-        mask_parser_1[:, :, 0] = 0
-        mask_parser_2[:, 0, :] = 0
+        mask_parser_1[:, :, 0] = 0  # zero out 1st column for each doc
+        mask_parser_2[:, 0, :] = 0  # zero out 1st row for each doc
 
         feed_dict = {self.t_variables['input_token_idxs']: token_idxs_matrix, self.t_variables['input_sent_l']: sent_l_matrix,
                      self.t_variables['input_mask_tokens']: mask_tokens_matrix, self.t_variables['input_mask_sents']: mask_sents_matrix,

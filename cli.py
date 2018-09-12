@@ -42,7 +42,8 @@ parser.add_argument("--model_dir")
 parser.add_argument("--vocab_file")
 parser.add_argument("--evaluate_split", default="test")
 parser.add_argument("--data_output_file", default="data/yelp-sentiment-output.pkl")
-
+parser.add_argument("--seed", default=42, type=int)
+parser.add_argument("--init_seed", default=42, type=int)
 
 def main(_):
     config = parser.parse_args()
