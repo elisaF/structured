@@ -1,6 +1,9 @@
+from __future__ import division
 import numpy as np
 from six.moves import zip_longest
 import pickle
+import tensorflow as tf
+import math
 
 class Data:
     def __init__(self):
@@ -111,3 +114,12 @@ def load_dict(fname):
 
 def save_dict(vocab, fname):
     pickle.dump(vocab, open(fname, 'wb'))
+
+
+class Initializer:
+    def __init__(self, init_seed):
+        self.init_seed = init_seed
+
+    def xavier_init(self):
+        return tf.contrib.layers.xavier_initializer(seed=self.init_seed)
+
