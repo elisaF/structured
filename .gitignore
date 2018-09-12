@@ -1,2 +1,4 @@
 *.so
 postprocess/build
+saved_models
+*.o

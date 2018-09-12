@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import numpy as np
 from random import shuffle
 
-labels = ["typical", "verygood"]
+labels = ["typical", "verygood", "great"]
 
 
 def _get_file_names(dir_, suffix=".txt"):
@@ -18,20 +18,21 @@ def make_dict():
     return defaultdict(make_dict)
 
 
-def create_data_splits(data_file_dir, trn_perc=.8, tst_perc=.1, dev_perc=.1):
+def create_data_splits(data_file_dir, paired_file_list, trn_perc=.8, tst_perc=.1, dev_perc=.1):
     # create two classes
     verygood_list = []
     typical_list = []
     data_files = _get_file_names(data_file_dir, ".txt")
     for data_file in data_files:
-        data_class = labels[0] if os.path.basename(data_file).split(".")[0] == labels[0] else labels[1]
-        if data_class == labels[0]:
+        label = os.path.basename(data_file).split(".")[0]
+        if label == labels[0]:
             with open(data_file) as f:
                 typical_list.extend([line.rstrip("\n") for line in f.readlines()])
-        else:
+        elif label == labels[1] or label == labels[2]:
             with open(data_file) as f:
                 verygood_list.extend([line.rstrip("\n") for line in f.readlines()])
-
+        else:
+            print("Ignoring file: ", data_file)
     shuffle(typical_list)
     shuffle(verygood_list)
 
@@ -40,14 +41,12 @@ def create_data_splits(data_file_dir, trn_perc=.8, tst_perc=.1, dev_perc=.1):
     tst_num = int(np.floor(len(verygood_list) * tst_perc))
     dev_num = int(np.floor(len(verygood_list) * dev_perc))
 
-    # split data sets
-    typical_trn = typical_list[:trn_num]
-    typical_tst = typical_list[trn_num:trn_num + tst_num]
-    typical_dev = typical_list[trn_num + tst_num:trn_num + tst_num + dev_num]
-
     verygood_trn = verygood_list[:trn_num]
     verygood_tst = verygood_list[trn_num:trn_num + tst_num]
     verygood_dev = verygood_list[trn_num + tst_num:trn_num + tst_num + dev_num]
+
+    # get paired typical files with similar topic
+    typical_trn, typical_tst, typical_dev = get_paired_files(verygood_trn, verygood_tst, verygood_dev, paired_file_list, typical_list)
 
     # write to files for reference
     with open(os.path.join(data_file_dir, labels[0] + "_trn.list"), 'w') as f:
@@ -71,14 +70,158 @@ def create_data_splits(data_file_dir, trn_perc=.8, tst_perc=.1, dev_perc=.1):
             [typical_dev, verygood_dev])
 
 
-def create_corpus(data_file_dir, ldc_tar_file, new_corpus_dir):
-    data_splits = create_data_splits(data_file_dir)
+def get_paired_files(verygood_trn, verygood_tst, verygood_dev, paired_file_list, typical_list):
+    paired_files_trn = []
+    paired_files_tst = []
+    paired_files_dev = []
+
+    num_not_topic_controlled_trn = 0
+    num_not_topic_controlled_tst = 0
+    num_not_topic_controlled_dev = 0
+
+    paired_dict = create_paired_dict(paired_file_list)
+    #all_matched_files = set([item for sublist in paired_dict.values() for item in sublist])
+    typical_list = set(typical_list)
+    for file in verygood_trn:
+        matches = paired_dict[file]
+        if matches[0] not in paired_files_trn and matches[0] not in paired_files_tst and matches[0] not in paired_files_dev:
+            paired_files_trn.append(matches[0])
+            typical_list.remove(matches[0])
+        elif matches[1] not in paired_files_trn and matches[1] not in paired_files_tst and matches[1] not in paired_files_dev:
+            paired_files_trn.append(matches[1])
+            typical_list.remove(matches[1])
+        elif matches[2] not in paired_files_trn and matches[2] not in paired_files_tst and matches[2] not in paired_files_dev:
+            paired_files_trn.append(matches[2])
+            typical_list.remove(matches[2])
+        elif matches[3] not in paired_files_trn and matches[3] not in paired_files_tst and matches[3] not in paired_files_dev:
+            paired_files_trn.append(matches[3])
+            typical_list.remove(matches[3])
+        elif matches[4] not in paired_files_trn and matches[4] not in paired_files_tst and matches[4] not in paired_files_dev:
+            paired_files_trn.append(matches[4])
+            typical_list.remove(matches[4])
+        elif matches[5] not in paired_files_trn and matches[5] not in paired_files_tst and matches[5] not in paired_files_dev:
+            paired_files_trn.append(matches[5])
+            typical_list.remove(matches[5])
+        elif matches[6] not in paired_files_trn and matches[6] not in paired_files_tst and matches[6] not in paired_files_dev:
+            paired_files_trn.append(matches[6])
+            typical_list.remove(matches[6])
+        elif matches[7] not in paired_files_trn and matches[7] not in paired_files_tst and matches[7] not in paired_files_dev:
+            paired_files_trn.append(matches[7])
+            typical_list.remove(matches[7])
+        elif matches[8] not in paired_files_trn and matches[8] not in paired_files_tst and matches[8] not in paired_files_dev:
+            paired_files_trn.append(matches[8])
+            typical_list.remove(matches[8])
+        elif matches[9] not in paired_files_trn and matches[9] not in paired_files_tst and matches[9] not in paired_files_dev:
+            paired_files_trn.append(matches[9])
+            typical_list.remove(matches[9])
+        else:
+            #print("TRAIN: All paired files for very good file: ", file, " have been included in the typical list. Going to include one that is not topic-controlled.")
+            paired_files_trn.append(typical_list.pop())
+            num_not_topic_controlled_trn += 1
+
+    for file in verygood_tst:
+        matches = paired_dict[file]
+        if matches[0] not in paired_files_trn and matches[0] not in paired_files_tst and matches[0] not in paired_files_dev:
+            paired_files_tst.append(matches[0])
+            typical_list.remove(matches[0])
+        elif matches[1] not in paired_files_trn and matches[1] not in paired_files_tst and matches[1] not in paired_files_dev:
+            paired_files_tst.append(matches[1])
+            typical_list.remove(matches[1])
+        elif matches[2] not in paired_files_trn and matches[2] not in paired_files_tst and matches[2] not in paired_files_dev:
+            paired_files_tst.append(matches[2])
+            typical_list.remove(matches[2])
+        elif matches[3] not in paired_files_trn and matches[3] not in paired_files_tst and matches[3] not in paired_files_dev:
+            paired_files_tst.append(matches[3])
+            typical_list.remove(matches[3])
+        elif matches[4] not in paired_files_trn and matches[4] not in paired_files_tst and matches[4] not in paired_files_dev:
+            paired_files_tst.append(matches[4])
+            typical_list.remove(matches[4])
+        elif matches[5] not in paired_files_trn and matches[5] not in paired_files_tst and matches[5] not in paired_files_dev:
+            paired_files_tst.append(matches[5])
+            typical_list.remove(matches[5])
+        elif matches[6] not in paired_files_trn and matches[6] not in paired_files_tst and matches[6] not in paired_files_dev:
+            paired_files_tst.append(matches[6])
+            typical_list.remove(matches[6])
+        elif matches[7] not in paired_files_trn and matches[7] not in paired_files_tst and matches[7] not in paired_files_dev:
+            paired_files_tst.append(matches[7])
+            typical_list.remove(matches[7])
+        elif matches[8] not in paired_files_trn and matches[8] not in paired_files_tst and matches[8] not in paired_files_dev:
+            paired_files_tst.append(matches[8])
+            typical_list.remove(matches[8])
+        elif matches[9] not in paired_files_trn and matches[9] not in paired_files_tst and matches[9] not in paired_files_dev:
+            paired_files_tst.append(matches[9])
+            typical_list.remove(matches[9])
+        else:
+            #print("TEST: All paired files for very good file: ", file, " have been included in the typical list. Going to include one that is not topic-controlled.")
+            paired_files_tst.append(typical_list.pop())
+            num_not_topic_controlled_tst += 1
+
+    for file in verygood_dev:
+        matches = paired_dict[file]
+        if matches[0] not in paired_files_trn and matches[0] not in paired_files_tst and matches[0] not in paired_files_dev:
+            paired_files_dev.append(matches[0])
+            typical_list.remove(matches[0])
+        elif matches[1] not in paired_files_trn and matches[1] not in paired_files_tst and matches[1] not in paired_files_dev:
+            paired_files_dev.append(matches[1])
+            typical_list.remove(matches[1])
+        elif matches[2] not in paired_files_trn and matches[2] not in paired_files_tst and matches[2] not in paired_files_dev:
+            paired_files_dev.append(matches[2])
+            typical_list.remove(matches[2])
+        elif matches[3] not in paired_files_trn and matches[3] not in paired_files_tst and matches[3] not in paired_files_dev:
+            paired_files_dev.append(matches[3])
+            typical_list.remove(matches[3])
+        elif matches[4] not in paired_files_trn and matches[4] not in paired_files_tst and matches[4] not in paired_files_dev:
+            paired_files_dev.append(matches[4])
+            typical_list.remove(matches[4])
+        elif matches[5] not in paired_files_trn and matches[5] not in paired_files_tst and matches[5] not in paired_files_dev:
+            paired_files_dev.append(matches[5])
+            typical_list.remove(matches[5])
+        elif matches[6] not in paired_files_trn and matches[6] not in paired_files_tst and matches[6] not in paired_files_dev:
+            paired_files_dev.append(matches[6])
+            typical_list.remove(matches[6])
+        elif matches[7] not in paired_files_trn and matches[7] not in paired_files_tst and matches[7] not in paired_files_dev:
+            paired_files_dev.append(matches[7])
+            typical_list.remove(matches[7])
+        elif matches[8] not in paired_files_trn and matches[8] not in paired_files_tst and matches[8] not in paired_files_dev:
+            paired_files_dev.append(matches[8])
+            typical_list.remove(matches[8])
+        elif matches[9] not in paired_files_trn and matches[9] not in paired_files_tst and matches[9] not in paired_files_dev:
+            paired_files_dev.append(matches[9])
+            typical_list.remove(matches[9])
+        else:
+            #print("DEV: All paired files for very good file: ", file, " have been included in the typical list. Going to include one that is not topic-controlled.")
+            paired_files_dev.append(typical_list.pop())
+            num_not_topic_controlled_dev += 1
+
+    print("Total number of files that don't control for topic: (trn/tst/dev)", num_not_topic_controlled_trn, num_not_topic_controlled_tst, num_not_topic_controlled_dev)
+    return paired_files_trn, paired_files_tst, paired_files_dev
+
+
+def create_paired_dict(paired_list_file):
+    paired_dict = {}
+    with open(paired_list_file) as f:
+        for line in f.readlines():
+            tabbed_line = line.split("\t")
+            file_to_match = tabbed_line[0]
+            matches = []
+            for index in range(2,12):
+                matches.append(tabbed_line[index].split(":")[0])
+            paired_dict[file_to_match] = matches
+    return paired_dict
+
+
+def create_corpus(data_file_dir, paired_file_list, ldc_tar_file, new_corpus_dir):
+    data_splits = create_data_splits(data_file_dir, paired_file_list)
     write_files(data_splits, ldc_tar_file, new_corpus_dir)
 
 
 def write_files(data_splits, ldc_tar_file, new_corpus_dir):
     dir_to_xml = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     xml_to_data_class_split = {}
+    # for split in data_splits:
+    #     for label in split:
+    #         print("Split ", split, " for class ", label, " has length: ", len(label), ", set: ", len(set(label)))
+
 
     # create mappings of file to directory location
     for split_idx, data_split in enumerate(data_splits):
@@ -86,7 +229,7 @@ def write_files(data_splits, ldc_tar_file, new_corpus_dir):
             for file_name in label_data_split:
                 year, folder1, folder2, xml = file_name.split("_")
                 dir_to_xml[year][folder1][folder2].append(xml)
-                assert (xml not in xml_to_data_class_split)  # sanity check to make sure xmls are unique
+                assert (xml not in xml_to_data_class_split), "XML was found!"+xml  # sanity check to make sure xmls are unique
                 xml_to_data_class_split[xml] = [split_idx, label_idx]
     print("Done creating mapping.")
 
@@ -120,6 +263,7 @@ def write_files(data_splits, ldc_tar_file, new_corpus_dir):
     print("Finished writing corpora: ", csv_counter)
     print("Total number of xmls written: ", len(set(all_xmls)))
 
+
 def make_dir(dir_):
     if not os.path.exists(dir_):
         os.makedirs(dir_)
@@ -127,7 +271,8 @@ def make_dir(dir_):
 
 if __name__ == '__main__':
     data_file_dir = sys.argv[1]
-    ldc_tar_file = sys.argv[2]
-    new_corpus_dir = sys.argv[3]
+    paired_file_list = sys.argv[2]
+    ldc_tar_file = sys.argv[3]
+    new_corpus_dir = sys.argv[4]
 
-    create_corpus(data_file_dir, ldc_tar_file, new_corpus_dir)
+    create_corpus(data_file_dir, paired_file_list, ldc_tar_file, new_corpus_dir)
