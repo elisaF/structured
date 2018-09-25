@@ -145,31 +145,35 @@ class StructureModel():
                                         cell_type=self.config.rnn_cell, cell_name='Model/sent')
         tokens_sem = tf.concat([tokens_output[0][:,:,:self.config.dim_sem], tokens_output[1][:,:,:self.config.dim_sem]], 2)
         tokens_str = tf.concat([tokens_output[0][:,:,self.config.dim_sem:], tokens_output[1][:,:,self.config.dim_sem:]], 2)
-        temp1 = tf.zeros([batch_l * max_doc_l, max_sent_l,1], tf.float32)
-        temp2 = tf.zeros([batch_l * max_doc_l,1,max_sent_l], tf.float32)
 
-        mask1 = tf.ones([batch_l * max_doc_l, max_sent_l, max_sent_l-1], tf.float32)
-        mask2 = tf.ones([batch_l * max_doc_l, max_sent_l-1, max_sent_l], tf.float32)
-        mask1 = tf.concat([temp1,mask1],2)
-        mask2 = tf.concat([temp2,mask2],1)
+        if self.config.skip_sent_attention:
+            tokens_output = LReLu(tf.tensordot(tf.concat([tokens_sem, tokens_input_do], 2), w_comb_s, [[2], [0]]) + b_comb_s)
+        else:
+            temp1 = tf.zeros([batch_l * max_doc_l, max_sent_l,1], tf.float32)
+            temp2 = tf.zeros([batch_l * max_doc_l,1,max_sent_l], tf.float32)
 
-        # create mask for setting all padded cells to 0
-        mask_ll_tokens = tf.expand_dims(mask_tokens,2)
-        mask_ll_tokens_trans = tf.transpose(mask_ll_tokens, perm=[0,2,1])
-        mask_ll_tokens = mask_ll_tokens
-        mask_tokens_mult = mask_ll_tokens * mask_ll_tokens_trans
+            mask1 = tf.ones([batch_l * max_doc_l, max_sent_l, max_sent_l-1], tf.float32)
+            mask2 = tf.ones([batch_l * max_doc_l, max_sent_l-1, max_sent_l], tf.float32)
+            mask1 = tf.concat([temp1,mask1],2)
+            mask2 = tf.concat([temp2,mask2],1)
 
-        # create mask for setting the padded diagonals to 1
-        mask_diags = tf.matrix_diag_part(mask_tokens_mult)
-        mask_diags_invert = tf.cast(tf.logical_not(tf.cast(mask_diags, tf.bool)), tf.float32)
-        zero_matrix = tf.zeros([batch_l * max_doc_l, max_sent_l, max_sent_l], tf.float32)
-        mask_tokens_add = tf.matrix_set_diag(zero_matrix, mask_diags_invert)
+            # create mask for setting all padded cells to 0
+            mask_ll_tokens = tf.expand_dims(mask_tokens,2)
+            mask_ll_tokens_trans = tf.transpose(mask_ll_tokens, perm=[0,2,1])
+            mask_ll_tokens = mask_ll_tokens
+            mask_tokens_mult = mask_ll_tokens * mask_ll_tokens_trans
 
-        str_scores_s_, _, LL_tokens, LL_tokens_unmasked = get_structure('sent', tokens_str, max_sent_l, mask1, mask2, mask_tokens_mult, mask_tokens_add)  # batch_l,  sent_l+1, sent_l
-        str_scores_s = tf.matrix_transpose(str_scores_s_)  # soft parent
-        tokens_sem_root = tf.concat([tf.tile(embeddings_root_s, [batch_l * max_doc_l, 1, 1]), tokens_sem], 1)
-        tokens_output_ = tf.matmul(str_scores_s, tokens_sem_root)
-        tokens_output = LReLu(tf.tensordot(tf.concat([tokens_sem, tokens_output_], 2), w_comb_s, [[2], [0]]) + b_comb_s)
+            # create mask for setting the padded diagonals to 1
+            mask_diags = tf.matrix_diag_part(mask_tokens_mult)
+            mask_diags_invert = tf.cast(tf.logical_not(tf.cast(mask_diags, tf.bool)), tf.float32)
+            zero_matrix = tf.zeros([batch_l * max_doc_l, max_sent_l, max_sent_l], tf.float32)
+            mask_tokens_add = tf.matrix_set_diag(zero_matrix, mask_diags_invert)
+
+            str_scores_s_, _, LL_tokens, LL_tokens_unmasked = get_structure('sent', tokens_str, max_sent_l, mask1, mask2, mask_tokens_mult, mask_tokens_add)  # batch_l,  sent_l+1, sent_l
+            str_scores_s = tf.matrix_transpose(str_scores_s_)  # soft parent
+            tokens_sem_root = tf.concat([tf.tile(embeddings_root_s, [batch_l * max_doc_l, 1, 1]), tokens_sem], 1)
+            tokens_output_ = tf.matmul(str_scores_s, tokens_sem_root)
+            tokens_output = LReLu(tf.tensordot(tf.concat([tokens_sem, tokens_output_], 2), w_comb_s, [[2], [0]]) + b_comb_s)
 
         if (self.config.sent_attention == 'sum'):
             tokens_output = tokens_output * tf.expand_dims(mask_tokens,2)
