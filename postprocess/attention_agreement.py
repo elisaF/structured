@@ -37,4 +37,6 @@ def main(_):
 
     args = parser.parse_args()
     doc_list = [cPickle.load(open(item)) for item in args.doc_list.split(',')]
-    get_root_agreement(doc_list)
+    avg_agreement = get_root_agreement(doc_list)
+    print("Parsed pickle files: ", doc_list)
+    print("Avg agreement: ", avg_agreement)
