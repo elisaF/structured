@@ -28,7 +28,7 @@ def get_root_agreement(doc_list):
     return avg_agreement
 
 
-def main(_):
+if __name__ == "__main__":
     import sys
     from os import path
 
