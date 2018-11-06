@@ -23,8 +23,9 @@ def get_root_agreement(doc_list):
             else:
                 pair_agreements.append(0)
         all_agreements.append(pair_agreements)
+    # rows = agreement pairs, columns = documents
     all_agreements = np.array(all_agreements)
-    avg_agreement = np.mean(np.sum(all_agreements, axis=1)) / all_agreements.shape[1]
+    avg_agreement = np.mean(np.sum(all_agreements, axis=0)) / all_agreements.shape[0]
     return avg_agreement
 
 
@@ -38,5 +39,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     doc_list = [cPickle.load(open(item)) for item in args.doc_list.split(',')]
     avg_agreement = get_root_agreement(doc_list)
-    print("Parsed pickle files: ", doc_list)
+    print("Parsed pickle files: ", args.doc_list.split(','))
     print("Avg agreement: ", avg_agreement)
