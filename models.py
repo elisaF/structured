@@ -1,5 +1,6 @@
 from __future__ import division
 import tensorflow as tf
+import math
 from neural import dynamicBiRNN, LReLu, MLP, get_structure
 import numpy as np
 
@@ -187,6 +188,11 @@ class StructureModel():
 
         # batch_l * max_doc_l, 200
         if self.config.skip_doc_bilstm:
+            if self.config.use_positional_encoding:
+                tokens_output = tf.reshape(tokens_output, [batch_l, max_doc_l, 2 * self.config.dim_sem])
+                tokens_output = self.add_timing_signal(tokens_output, max_doc_l, num_timescales=self.config.dim_sem)
+                tokens_output = tf.reshape(tokens_output, [batch_l * max_doc_l, 2 * self.config.dim_sem])
+
             sents_sem = tf.matmul(tokens_output, w_sem_doc)
             sents_sem = tf.reshape(sents_sem, [batch_l, max_doc_l, 2 * self.config.dim_sem])
             sents_str = tf.matmul(tokens_output, w_str_doc)
@@ -277,3 +283,51 @@ class StructureModel():
                     self.loss += self.config.norm * tf.nn.l2_loss(p)
             self.opt = optimizer.minimize(self.loss)
 
+            # blatantly copied from https://github.com/tensorflow/tensor2tensor/
+
+    def get_timing_signal(self, length,
+                          min_timescale=1,
+                          max_timescale=1e4,
+                          num_timescales=16):
+        """Create Tensor of sinusoids of different frequencies.
+        Args:
+          length: Length of the Tensor to create, i.e. Number of steps.
+          min_timescale: a float
+          max_timescale: a float
+          num_timescales: an int
+        Returns:
+          Tensor of shape (length, 2*num_timescales)
+        """
+        positions = tf.to_float(tf.range(length))
+        log_timescale_increment = (
+            math.log(max_timescale / min_timescale) / (num_timescales - 1))
+        inv_timescales = min_timescale * tf.exp(
+            tf.to_float(tf.range(num_timescales)) * -log_timescale_increment)
+        scaled_time = tf.expand_dims(positions, 1) * tf.expand_dims(inv_timescales, 0)
+        return tf.concat([tf.sin(scaled_time), tf.cos(scaled_time)], axis=1)
+
+    def add_timing_signal(self, x, length, min_timescale=1, max_timescale=1e4, num_timescales=16):
+        """Adds a bunch of sinusoids of different frequencies to a Tensor.
+        This allows attention to learn to use absolute and relative positions.
+        The timing signal should be added to some precursor of both the source
+        and the target of the attention.
+        The use of relative position is possible because sin(x+y) and cos(x+y) can be
+        expressed in terms of y, sin(x) and cos(x).
+        In particular, we use a geometric sequence of timescales starting with
+        min_timescale and ending with max_timescale.  For each timescale, we
+        generate the two sinusoidal signals sin(timestep/timescale) and
+        cos(timestep/timescale).  All of these sinusoids are concatenated in
+        the depth dimension, padded with zeros to be the same depth as the input,
+        and added into input.
+        Args:
+          x: a Tensor with shape [?, length, ?, depth]
+          min_timescale: a float
+          max_timescale: a float
+          num_timescales: an int <= depth/2
+        Returns:
+          a Tensor the same shape as x.
+        """
+        signal = self.get_timing_signal(length, min_timescale, max_timescale,
+                                        num_timescales)
+        padded_signal = tf.pad(signal, [[0, 0], [0, (2 * self.config.dim_sem) - 2 * num_timescales]])
+        return x + tf.reshape(padded_signal, [1, length, (2 * self.config.dim_sem)])
