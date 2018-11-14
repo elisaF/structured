@@ -27,6 +27,7 @@ parser.add_argument("--opt", default='Adagrad')
 parser.add_argument("--lr", default=0.05, type=float)
 parser.add_argument("--norm", default=1e-4, type=float)
 parser.add_argument("--gpu", default="-1")
+parser.add_argument("--use_positional_encoding", action='store_true')
 parser.add_argument("--model_dir_prefix")
 
 parser.add_argument("--sent_attention", default="max")
