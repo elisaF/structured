@@ -7,6 +7,7 @@ np.set_printoptions(threshold='nan')
 import cPickle
 import logging
 from models import StructureModel
+import subprocess
 import tqdm
 import time
 import utils
@@ -54,7 +55,9 @@ def run(config):
 
     if config.model_dir:
         print(config)
+        print(get_git_revision_hash())
         logger.critical(str(config))
+        logger.critical(get_git_revision_hash())
 
         evaluate_pretrained_model(config, logger)
 
@@ -161,3 +164,6 @@ def evaluate_pretrained_model(config, logger):
     test_batches = client.load_data(config, config.evaluate_split)
     client.predict(test_batches, config.skip_doc_attention, config.evaluate_split)
 
+
+def get_git_revision_hash():
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD'])
