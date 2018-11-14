@@ -236,7 +236,7 @@ class StructureModel():
             elif self.config.tree_percolation_levels == 2:
                 sents_c = tf.matmul(str_scores_no_root, sents_sem)
                 sents_r = LReLu(tf.tensordot(tf.concat([sents_sem, sents_c], 2), w_comb, [[2], [0]]) + b_comb)
-                sents_c_2 = tf.matmul(str_scores, sents_r)
+                sents_c_2 = tf.matmul(str_scores_no_root, sents_r)
                 sents_r2 = LReLu(tf.tensordot(tf.concat([sents_r, sents_c_2], 2), w_comb, [[2], [0]]) + b_comb)
                 sents_r2_root = tf.concat([tf.tile(embeddings_root, [batch_l, 1, 1]), sents_r2], 1)
                 sents_c_3 = tf.matmul(str_scores, sents_r2_root)
