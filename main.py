@@ -74,6 +74,8 @@ def run(config):
 
         print(config)
         logger.critical(str(config))
+        print("Git version: ", get_git_revision_hash())
+        logger.critical(get_git_revision_hash())
 
         model = StructureModel(config, xavier_init)
         model.build()
