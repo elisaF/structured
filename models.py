@@ -239,9 +239,12 @@ class StructureModel():
             elif self.config.tree_percolation == "both":
                 sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_parents, sents_children], 2), w_comb_both, [[2], [0]]) + b_comb)
 
-            if self.config.tree_percolation_levels == 1:
-                sents_children_2 = tf.matmul(str_scores_no_root, sents_output)
-                sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_children_2], 2), w_comb, [[2], [0]]) + b_comb)
+            if self.config.tree_percolation_levels > 0:
+                count = 0
+                while count < self.config.tree_percolation_levels:
+                    sents_children_2 = tf.matmul(str_scores_no_root, sents_output)
+                    sents_output = LReLu(tf.tensordot(tf.concat([sents_output, sents_children_2], 2), w_comb, [[2], [0]]) + b_comb)
+                    count += 1
 
         if (self.config.doc_attention == 'sum'):
             sents_output = sents_output * tf.expand_dims(mask_sents, 2)  # mask is [batch_size, doc_l, 1]
