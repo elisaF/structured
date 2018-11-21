@@ -55,7 +55,7 @@ def run(config):
 
     if config.model_dir:
         print(config)
-        print("Tensorflow version: ", print(tf.__version__))
+        print("Tensorflow version: ", tf.__version__)
         print("Git version: ", get_git_revision_hash())
         logger.critical(str(config))
         logger.critical(get_git_revision_hash())
