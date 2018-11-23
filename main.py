@@ -75,6 +75,7 @@ def run(config):
 
         print(config)
         logger.critical(str(config))
+        print("Tensorflow version: ", tf.__version__)
         print("Git version: ", get_git_revision_hash())
         logger.critical(get_git_revision_hash())
 

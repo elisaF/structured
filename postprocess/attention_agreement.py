@@ -16,7 +16,7 @@ def get_root_agreement(doc_list):
     for doc_pair in doc_pairs:
         pair_agreements = []
         docs1 = doc_list[doc_pair[0]]
-        docs2 = doc_list[doc_pair[0]]
+        docs2 = doc_list[doc_pair[1]]
         for doc1, doc2 in zip(docs1, docs2):
             if set(doc1.tree.deps[0]).intersection(set(doc2.tree.deps[0])):
                 pair_agreements.append(1)
@@ -25,7 +25,7 @@ def get_root_agreement(doc_list):
         all_agreements.append(pair_agreements)
     # rows = agreement pairs, columns = documents
     all_agreements = np.array(all_agreements)
-    avg_agreement = np.mean(np.sum(all_agreements, axis=0)) / all_agreements.shape[0]
+    avg_agreement = np.mean(np.sum(all_agreements, axis=0)/all_agreements.shape[0])
     return avg_agreement
 
 
