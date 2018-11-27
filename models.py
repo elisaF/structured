@@ -279,10 +279,12 @@ class StructureModel():
             for p in model_params + str_params:
                 if ('bias' not in p.name):
                     self.loss += self.config.norm * tf.nn.l2_loss(p)
-            self.opt = optimizer.minimize(self.loss)
+            #self.opt = optimizer.minimize(self.loss)
+            gradients, variables = zip(*optimizer.compute_gradients(self.loss))
+            gradients, _ = tf.clip_by_global_norm(gradients, self.config.clip_ratio)
+            self.opt = optimizer.apply_gradients(zip(gradients, variables))
 
-            # blatantly copied from https://github.com/tensorflow/tensor2tensor/
-
+    # blatantly copied from https://github.com/tensorflow/tensor2tensor/
     def get_timing_signal(self, length,
                           min_timescale=1,
                           max_timescale=1e4,
