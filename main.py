@@ -91,7 +91,7 @@ def run(config):
         with tf.Session() as sess:
             gvi = tf.global_variables_initializer()
             sess.run(gvi)
-            sess.run(model.embeddings.assign(embedding_matrix.astype(np.float32)))
+            sess.run(model.embeddings.assign(embedding_matrix.astype(np.float64)))
             if config.debug:
                 sess = tf_debug.LocalCLIDebugWrapperSession(sess)
             loss = 0
@@ -136,7 +136,7 @@ def save_model(sess, step, model, logger, config):
 
     output = tf.saved_model.utils.build_tensor_info(model.final_output)
     if config.skip_doc_attention:
-        str_scores = tf.saved_model.utils.build_tensor_info(tf.convert_to_tensor(np.empty([1,1]), np.float32))
+        str_scores = tf.saved_model.utils.build_tensor_info(tf.convert_to_tensor(np.empty([1,1]), np.float64))
     else:
         str_scores = tf.saved_model.utils.build_tensor_info(model.str_scores)
     prediction_signature = (

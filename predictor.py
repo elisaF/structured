@@ -28,7 +28,7 @@ class InMemoryClient:
         input_tensor_names = [meta_graph_def_sig.inputs[k].name for k in input_tensor_keys]
 
         self.t_variables = {key: name for key, name in zip(input_tensor_keys, input_tensor_names)}
-
+     
         self.final_output = meta_graph_def_sig.outputs['output'].name
         self.str_scores = meta_graph_def_sig.outputs['str_scores'].name
 
@@ -105,8 +105,8 @@ class InMemoryClient:
         sent_l_matrix = np.zeros([batch_size, max_doc_l], np.int32)
         gold_matrix = np.zeros([batch_size], np.int32)
         id_matrix = np.zeros([batch_size], np.int32)
-        mask_tokens_matrix = np.ones([batch_size, max_doc_l, max_sent_l], np.float32)
-        mask_sents_matrix = np.ones([batch_size, max_doc_l], np.float32)
+        mask_tokens_matrix = np.ones([batch_size, max_doc_l, max_sent_l], np.float64)
+        mask_sents_matrix = np.ones([batch_size, max_doc_l], np.float64)
         for i, instance in enumerate(batch):
             n_sents = len(instance.token_idxs)
             gold_matrix[i] = instance.goldLabel
@@ -117,8 +117,8 @@ class InMemoryClient:
                 sent_l_matrix[i, j] = len(sent)
             mask_sents_matrix[i, n_sents:] = 0
 
-        mask_parser_1 = np.ones([batch_size, max_doc_l, max_doc_l], np.float32)
-        mask_parser_2 = np.ones([batch_size, max_doc_l, max_doc_l], np.float32)
+        mask_parser_1 = np.ones([batch_size, max_doc_l, max_doc_l], np.float64)
+        mask_parser_2 = np.ones([batch_size, max_doc_l, max_doc_l], np.float64)
         mask_parser_1[:, :, 0] = 0  # zero out 1st column for each doc
         mask_parser_2[:, 0, :] = 0  # zero out 1st row for each doc
 
