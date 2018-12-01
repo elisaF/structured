@@ -238,7 +238,7 @@ class StructureModel():
                 elif self.config.tree_percolation == "both":
                     sents_output = LReLu(tf.tensordot(tf.concat([sents_sem, sents_parents, sents_children], 2), w_comb_both, [[2], [0]]) + b_comb)
 
-            # percolation is only supported for "children" option
+            # percolation is only supported for "child" option
             if self.config.tree_percolation_levels > 0:
                 count = 0
                 while count < self.config.tree_percolation_levels:
