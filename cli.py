@@ -13,6 +13,7 @@ from main import run as m
 #                comb_atv='tanh')
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--skip_mask_bug_fix", action='store_true')
 parser.add_argument("--rnn_cell", default="lstm")
 parser.add_argument("--data_file", default= "/data/yelp-sentiment.pkl")
 parser.add_argument("--debug", action='store_true')
