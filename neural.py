@@ -107,5 +107,5 @@ def get_structure(name, input, mask_parser_1, mask_parser_2, mask_multiply, mask
         d = tf.concat([tf.expand_dims(d0,[1]), d_no_root], 1)  # add column at beginning for root
         return d, d_no_root, LL
 
-    str_scores, str_scores_no_root, LL, LL_masked = _getDep(input, mask_parser_1, mask_parser_2, mask_multiply, mask_add, mask)
-    return str_scores, str_scores_no_root, LL, LL_masked
+    str_scores, str_scores_no_root, LL = _getDep(input, mask_parser_1, mask_parser_2, mask_multiply, mask_add, mask)
+    return str_scores, str_scores_no_root, LL
